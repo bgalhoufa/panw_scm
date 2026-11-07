@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/*.tfstate)",
+      "Read(./**/*.tfstate.*)",
+      "Bash(terraform destroy*)",
+      "Bash(terraform * destroy*)",
+      "Bash(terraform apply -destroy*)",
+      "Bash(terraform * apply -destroy*)",
+      "PowerShell(terraform destroy*)",
+      "PowerShell(terraform * destroy*)",
+      "PowerShell(terraform apply -destroy*)",
+      "PowerShell(terraform * apply -destroy*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "PowerShell(git push --force*)",
+      "PowerShell(git push -f*)"
+    ],
+    "ask": [
+      "Bash(terraform apply*)",
+      "Bash(terraform * apply*)",
+      "Bash(terraform import*)",
+      "Bash(terraform * import*)",
+      "Bash(terraform state*)",
+      "Bash(terraform * state*)",
+      "Bash(terraform taint*)",
+      "Bash(terraform force-unlock*)",
+      "PowerShell(terraform apply*)",
+      "PowerShell(terraform * apply*)",
+      "PowerShell(terraform import*)",
+      "PowerShell(terraform * import*)",
+      "PowerShell(terraform state*)",
+      "PowerShell(terraform * state*)",
+      "PowerShell(terraform taint*)",
+      "PowerShell(terraform force-unlock*)"
+    ]
+  }
+}
