@@ -10,6 +10,7 @@ It never pushes configuration to the firewalls.
 Usage:
   .venv\\Scripts\\python scripts\\scm_devices.py <workbook.xlsx>
   .venv\\Scripts\\python scripts\\scm_devices.py <workbook.xlsx> --apply
+  .venv\\Scripts\\python scripts\\scm_devices.py <workbook.xlsx> --wave 2 [--apply]
 """
 import argparse
 import json
@@ -68,11 +69,14 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true", help="write the changes to SCM (default: dry run)")
     ap.add_argument("--allow-out-of-scope-source", action="store_true",
                     help="allow moving a firewall that currently sits in a folder outside PANW")
+    ap.add_argument("--wave", help="only process rows whose wave column equals this value")
     args = ap.parse_args()
 
     rows = read_sheet(args.workbook, "Firewalls")
+    if args.wave is not None:
+        rows = [r for r in rows if r.get("wave") == args.wave]
     if not rows:
-        print("No firewall rows in the Firewalls sheet.")
+        print("No firewall rows to process" + (f" in wave {args.wave}." if args.wave else "."))
         return 0
 
     load_env_file()

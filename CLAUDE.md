@@ -44,6 +44,11 @@ Hard limits are also enforced in `.claude/settings.json`.
 - Bulk input arrives as a filled copy of `templates/SCM_bulk_template.xlsx`. Read it with
   `scripts/template_io.py`; never commit a filled-in workbook unless the owner asks.
 - Python scripts run from `.venv` (`.venv\Scripts\python`).
+- Terraform state stays local on the owner's PC (owner's decision): no remote backend. This repo
+  is the tooling for a ~200-firewall rollout; after it, Terraform is retired and SCM is managed
+  directly, so never design anything that needs `terraform destroy` or long-term state.
+- Per-firewall values are variables with `device = <serial>`; firewalls roll out in waves
+  (`wave` column, `scm_devices.py --wave N`).
 - Before automating anything, check `docs/api/SCM_API_ENDPOINTS.md`: prefer Terraform when the
   endpoint has a `scm_*` resource; if it is API-only, propose a script and ask first; if it is not
   listed, the API cannot do it.

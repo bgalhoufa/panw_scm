@@ -63,13 +63,18 @@ SHEETS = [
       ("comments", O, "Description.", None)],
      ["EXAMPLE-prod", "PANW", "", "Red", "Production systems"]),
 
-    ("Variables", "scm_variable", "Variables, used as $name in other sheets.",
+    ("Variables", "scm_variable",
+     "Variables, used as $name in other sheets. Define each variable once on a folder (default value), "
+     "then add one row per firewall (device = serial number) with that firewall's own value.",
      [("name", R, "Variable name, must start with $ (e.g. $wan_ip).", None),
-      ("type", R, "Variable type.", VAR_TYPES),
-      ("value", R, "Default value, matching the type (e.g. 203.0.113.10/30).", None),
-      CONTAINER_F, CONTAINER_S,
+      ("type", R, "Variable type. Use the same type on every row of the same variable.", VAR_TYPES),
+      ("value", R, "Value, matching the type (e.g. 203.0.113.10/30).", None),
+      ("folder", C, "Folder default: PANW or a folder below it. Exactly one of folder / snippet / device per row.", None),
+      ("snippet", C, "Snippet default, instead of folder. Exactly one of folder / snippet / device per row.", None),
+      ("device", C, "Per-firewall value: serial number from the Firewalls sheet. Overrides the folder value. "
+                    "Exactly one of folder / snippet / device per row.", None),
       ("description", O, "Free text.", None)],
-     ["$EXAMPLE_wan_ip", "ip-netmask", "203.0.113.10/30", "EXAMPLE-SITES", "", "WAN IP per site"]),
+     ["$EXAMPLE_wan_ip", "ip-netmask", "203.0.113.10/30", "", "", "EXAMPLE-0123456789", "WAN IP of FW-BRANCH-01"]),
 
     ("Addresses", "scm_address", "Address objects.",
      [("name", R, "Object name (max 63).", None),
@@ -222,8 +227,9 @@ SHEETS = [
       ("display_name", O, "Name shown in SCM. Empty = keep the current one.", None),
       ("description", O, "Free text. Empty = keep the current one.", None),
       ("labels", O, f"Device labels (must already exist). {SEP} Empty = keep the current ones.", None),
-      ("snippets", O, f"Snippets applied to this firewall only. {SEP} Empty = keep the current ones.", None)],
-     ["EXAMPLE-0123456789", "EXAMPLE-SITES", "FW-BRANCH-01", "Branch 01 PA-440", "BRANCH", ""]),
+      ("snippets", O, f"Snippets applied to this firewall only. {SEP} Empty = keep the current ones.", None),
+      ("wave", O, "Rollout wave number (1, 2, 3 ...). Lets each batch be planned and applied on its own.", None)],
+     ["EXAMPLE-0123456789", "EXAMPLE-SITES", "FW-BRANCH-01", "Branch 01 PA-440", "BRANCH", "", "1"]),
 ]
 
 README_ROWS = [
@@ -248,6 +254,8 @@ README_ROWS = [
     ("Yes / no", "Use the dropdown (yes / no)."),
     ("any", "Type any where a rule should match everything (zones, addresses, users, applications, services)."),
     ("Variables", "Names start with $. Define them in the Variables sheet and use them in IP / interface fields, e.g. $wan_ip."),
+    ("Per-firewall values", "Put shared config on folders and snippets. For values unique to each firewall (WAN IP, hostname, router ID), use a variable: one row with a folder default, plus one row per firewall with device = its serial number."),
+    ("Waves", "Number the firewalls in the wave column of the Firewalls sheet to roll them out in batches."),
     ("Existing objects", "Labels, security profiles, log profiles, schedules and management profiles must already exist in SCM; they are not created from this file."),
     ("Rule order", "Security and NAT rules are created in row order; the first row is the top of the rulebase."),
     ("", None),
