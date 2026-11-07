@@ -7,7 +7,8 @@ Hard limits are also enforced in `.claude/settings.json`.
 ## Claude CAN (without asking)
 - Read, write and refactor Terraform, Python scripts and docs in this repo.
 - Run read-only commands: `terraform fmt`, `init`, `validate`, `plan`, `show`, `output`,
-  `providers`, and `python scripts/scm_auth_check.py`.
+  `providers`, `python scripts/scm_auth_check.py`, and `scripts/scm_devices.py` without `--apply`.
+- Install the Python packages listed in `requirements.txt` into `.venv` (add new ones there).
 - Make read-only (GET) calls to the SCM API.
 - Commit to git and push to `origin` (github.com/bgalhoufa/panw_scm).
 
@@ -15,7 +16,8 @@ Hard limits are also enforced in `.claude/settings.json`.
 - `terraform apply`, `import`, `state rm|mv`, `taint`, `force-unlock` — always show the
   plan summary (adds / changes / destroys) and wait for explicit "yes".
 - Any non-GET call to the SCM API (POST / PUT / DELETE).
-- Adding new Terraform providers, modules from the registry, or Python dependencies.
+- Adding new Terraform providers or modules from the registry.
+- `scripts/scm_devices.py --apply` (moves firewalls between folders); show the dry-run output first.
 - Creating GitHub Actions workflows or anything that runs automatically.
 
 ## Claude must NEVER
@@ -39,6 +41,9 @@ Hard limits are also enforced in `.claude/settings.json`.
 - Invoke Terraform as `terraform ...` from the `terraform/` directory (not via a full
   path) so the permission rules in `.claude/settings.json` match.
 - Follow the `scm-change` skill for any change that will reach SCM.
+- Bulk input arrives as a filled copy of `templates/SCM_bulk_template.xlsx`. Read it with
+  `scripts/template_io.py`; never commit a filled-in workbook unless the owner asks.
+- Python scripts run from `.venv` (`.venv\Scripts\python`).
 - Before automating anything, check `docs/api/SCM_API_ENDPOINTS.md`: prefer Terraform when the
   endpoint has a `scm_*` resource; if it is API-only, propose a script and ask first; if it is not
   listed, the API cannot do it.

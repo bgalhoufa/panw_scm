@@ -33,7 +33,9 @@
       "PowerShell(terraform state*)",
       "PowerShell(terraform * state*)",
       "PowerShell(terraform taint*)",
-      "PowerShell(terraform force-unlock*)"
+      "PowerShell(terraform force-unlock*)",
+      "Bash(*scm_devices.py*--apply*)",
+      "PowerShell(*scm_devices.py*--apply*)"
     ]
   }
 }
