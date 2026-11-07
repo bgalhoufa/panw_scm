@@ -7,6 +7,8 @@ using the official [`PaloAltoNetworks/scm`](https://registry.terraform.io/provid
 
 ```
 terraform/      Root Terraform module (provider, versions, resources)
+scripts/        Helper scripts (credential check, .env loader)
+docs/api/       SCM API endpoint catalogue: what the API and Terraform can / cannot do
 .env.example    Template for SCM API credentials (copy to .env, never commit)
 ```
 
