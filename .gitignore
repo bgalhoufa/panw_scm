@@ -1,0 +1,31 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info
+.terraformrc
+terraform.rc
+
+# Variables / secrets — never commit real values
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+.env
+*.env
+!.env.example
+secrets/
+scm-auth.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
