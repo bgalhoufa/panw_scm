@@ -46,8 +46,8 @@ def required_fields(path: Path) -> dict[str, list[str]]:
     return out
 
 
-def main() -> int:
-    path = Path(sys.argv[1])
+def main(argv: list[str] | None = None) -> int:
+    path = Path((argv if argv is not None else sys.argv[1:])[0])
     rep = Report()
     s = {name: read_sheet(path, name) for name in (
         "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Addresses", "Address Groups",

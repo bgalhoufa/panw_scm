@@ -1,8 +1,8 @@
-# SCM folder hierarchy managed by Terraform.
+# Root of the project's SCM folder tree: PANW under "All Firewalls" (ngfw-shared).
 #
-# Each level is its own resource so a child folder always depends on its parent.
-# To add a folder, add an entry to the map for its level; `parent` must be the
-# name of a folder in the level above.
+# Everything below PANW comes from the workbook and lives in gen_*.tf
+# (scripts/workbook_to_tf.py). PANW itself stays here so undoing a deployment
+# never removes it.
 
 locals {
   folders_level1 = {
@@ -19,4 +19,6 @@ resource "scm_folder" "level1" {
   name        = each.key
   parent      = each.value.parent
   description = each.value.description
+  # Folder Snippets rows for PANW (generated in gen_00_structure.tf)
+  snippets = length(local.panw_folder_snippets) > 0 ? local.panw_folder_snippets : null
 }

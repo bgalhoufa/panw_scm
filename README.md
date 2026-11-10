@@ -46,13 +46,25 @@ $env:SCM_SCOPE         = "tsg_id:..."
 1. Fill in a copy of `templates/SCM_bulk_template.xlsx` (one sheet per object type; see its README sheet).
 2. Check it offline: `.venv\Scripts\python scripts\validate_workbook.py my-file.xlsx` (errors block, warnings
    flag references that must already exist in SCM).
-3. Objects become Terraform code under `terraform/` and go through `terraform plan` / `apply`.
+3. Generate Terraform: `.venv\Scripts\python scripts\workbook_to_tf.py my-file.xlsx` writes
+   `terraform/gen_*.tf` (one block per row), then `terraform fmt`, `plan`, review, `apply`, and record the
+   deployment: `.venv\Scripts\python scripts\deployments.py record <name>`.
 4. Firewalls (Firewalls sheet) have no Terraform resource; they are placed in folders through the API:
    ```powershell
    .venv\Scripts\python scripts\scm_devices.py my-file.xlsx           # dry run
    .venv\Scripts\python scripts\scm_devices.py my-file.xlsx --apply   # write to SCM
    ```
    Firewalls must already be registered to the tenant; the API cannot add a new serial number.
+
+### Undo a deployment
+
+```powershell
+.venv\Scripts\python scripts\deployments.py list             # recorded deployments (git tags deploy/...)
+.venv\Scripts\python scripts\deployments.py restore <tag>    # or: restore empty
+terraform -chdir=terraform plan                           # shows exactly what will be removed / reverted
+```
+Apply only after reviewing the plan. The PANW folder is never removed. If the config was already
+pushed to firewalls, push again from SCM after the rollback.
 
 Rebuild the template after changing `scripts/build_template.py`:
 `.venv\Scripts\python scripts\build_template.py`
