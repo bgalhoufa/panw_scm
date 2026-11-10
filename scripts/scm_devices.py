@@ -101,7 +101,14 @@ def main() -> int:
             continue
         dev = devices.get(serial)
         if dev is None:
-            print(f"SKIP    {where}: not registered to this tenant - register / associate it first")
+            if serial in scm_folders:
+                # SCM creates a folder entry per device on "Move to Cloud Management";
+                # device details only exist once the firewall has connected.
+                print(f"PENDING {where}: in cloud management (under '{scm_folders[serial]}') but not connected yet - "
+                      f"check 'Managed By Cloud Service', DNS/NTP and the device certificate on the firewall")
+            else:
+                print(f"SKIP    {where}: not in cloud management - associate it and use "
+                      f"'Move to Cloud Management' in SCM first")
             problems += 1
             continue
         if target not in scm_folders:
