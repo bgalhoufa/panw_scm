@@ -44,7 +44,7 @@ $env:SCM_SCOPE         = "tsg_id:..."
 ## Bulk input (Excel)
 
 1. Fill in a copy of `templates/SCM_bulk_template.xlsx` (one sheet per object type; see its README sheet).
-2. Check it offline: `.venv\Scripts\python scriptsalidate_workbook.py my-file.xlsx` (errors block, warnings
+2. Check it offline: `.venv\Scripts\python scripts\validate_workbook.py my-file.xlsx` (errors block, warnings
    flag references that must already exist in SCM).
 3. Objects become Terraform code under `terraform/` and go through `terraform plan` / `apply`.
 4. Firewalls (Firewalls sheet) have no Terraform resource; they are placed in folders through the API:
