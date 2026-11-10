@@ -37,3 +37,6 @@ Thumbs.db
 .venv/
 __pycache__/
 *.pyc
+
+# Filled-in workbooks (customer data) - commit only on request
+inputs/

@@ -38,17 +38,23 @@ LONG_LISTS = {"tag_colors": TAG_COLORS}
 
 # (sheet name, how it is deployed, purpose, columns, example row)
 SHEETS = [
+    ("Labels", "scm_label", "New labels, used on folders, snippets and firewalls (and by onboarding rules). "
+                            "Labels that already exist in SCM need no row here.",
+     [("name", R, "Label name.", None),
+      ("description", O, "Free text.", None)],
+     ["EXAMPLE-HQ", "Headquarters firewalls"]),
+
     ("Folders", "scm_folder", "SCM folders. Parent of top-level folders is PANW.",
      [("name", R, "Folder name. Letters, numbers, space, - _ . (max 64).", None),
       ("parent", R, "Parent folder: PANW or another folder in this sheet (listed above it).", None),
       ("description", O, "Free text.", None),
-      ("labels", O, f"Labels (must already exist). {SEP}", None)],
+      ("labels", O, f"Labels, from the Labels sheet or already in SCM. {SEP}", None)],
      ["EXAMPLE-SITES", "PANW", "All branch sites", ""]),
 
     ("Snippets", "scm_snippet", "Reusable configuration snippets.",
      [("name", R, "Snippet name.", None),
       ("description", O, "Free text.", None),
-      ("labels", O, f"Labels (must already exist). {SEP}", None)],
+      ("labels", O, f"Labels, from the Labels sheet or already in SCM. {SEP}", None)],
      ["EXAMPLE-baseline", "Common objects for all PANW sites", ""]),
 
     ("Folder Snippets", "scm_folder.snippets", "Which snippets are attached to which folder. One row per folder + snippet pair.",
@@ -226,7 +232,7 @@ SHEETS = [
       ("folder", R, "Target folder: PANW or a folder below it.", None),
       ("display_name", O, "Name shown in SCM. Empty = keep the current one.", None),
       ("description", O, "Free text. Empty = keep the current one.", None),
-      ("labels", O, f"Device labels (must already exist). {SEP} Empty = keep the current ones.", None),
+      ("labels", O, f"Device labels, from the Labels sheet or already in SCM. {SEP} Empty = keep the current ones.", None),
       ("snippets", O, f"Snippets applied to this firewall only. {SEP} Empty = keep the current ones.", None),
       ("wave", O, "Rollout wave number (1, 2, 3 ...). Lets each batch be planned and applied on its own.", None)],
      ["EXAMPLE-0123456789", "EXAMPLE-SITES", "FW-BRANCH-01", "Branch 01 PA-440", "BRANCH", "", "1"]),
@@ -256,13 +262,13 @@ README_ROWS = [
     ("Variables", "Names start with $. Define them in the Variables sheet and use them in IP / interface fields, e.g. $wan_ip."),
     ("Per-firewall values", "Put shared config on folders and snippets. For values unique to each firewall (WAN IP, hostname, router ID), use a variable: one row with a folder default, plus one row per firewall with device = its serial number."),
     ("Waves", "Number the firewalls in the wave column of the Firewalls sheet to roll them out in batches."),
-    ("Existing objects", "Labels, security profiles, log profiles, schedules and management profiles must already exist in SCM; they are not created from this file."),
+    ("Existing objects", "Security profiles, log profiles, schedules and management profiles must already exist in SCM; they are not created from this file."),
     ("Rule order", "Security and NAT rules are created in row order; the first row is the top of the rulebase."),
     ("", None),
     ("Folders and snippets", "Folder Snippets attaches snippets to folders (applies to every firewall in that folder and below). The snippets column of the Firewalls sheet attaches snippets to one firewall only."),
     ("Firewalls", "The firewall must already be registered to this SCM tenant (it appears in the device list), e.g. through the Customer Support Portal or by connecting it with its device certificate. The SCM API cannot register a new serial number; it can only place an existing firewall in a folder and set its name, labels and snippets. Unknown serial numbers are reported and skipped."),
     ("", None),
-    ("Deployment order", "Folders → Snippets → Folder Snippets → Tags → Variables → Addresses → Address Groups → Services → Service Groups → Interfaces → Zones → Logical Routers → Routes → Security Rules → NAT Rules → Firewalls. Sheets are in that order; references only need to point to objects on an earlier sheet or already in SCM. Firewalls are moved last, once their folder and its configuration exist."),
+    ("Deployment order", "Labels → Folders → Snippets → Folder Snippets → Tags → Variables → Addresses → Address Groups → Services → Service Groups → Interfaces → Zones → Logical Routers → Routes → Security Rules → NAT Rules → Firewalls. Sheets are in that order; references only need to point to objects on an earlier sheet or already in SCM. Firewalls are moved last, once their folder and its configuration exist."),
     ("After the plan", "Applying writes to the SCM candidate config only. Pushing it to the firewalls is done manually in SCM by the repo owner."),
     ("", None),
     ("Sheet → how it is deployed", None),
