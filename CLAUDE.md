@@ -47,6 +47,8 @@ Hard limits are also enforced in `.claude/settings.json`.
   Each applied deployment is tagged `deploy/...` by `scripts/deployments.py record`.
 - Bulk input arrives as a filled copy of `templates/SCM_bulk_template.xlsx`. Read it with
   `scripts/template_io.py`; never commit a filled-in workbook unless the owner asks.
+- Use ONE cumulative workbook for the whole rollout (waves add rows). The converter rebuilds all
+  `gen_*.tf` from the file it gets, so a per-wave file would plan to delete earlier waves.
 - Python scripts run from `.venv` (`.venv\Scripts\python`).
 - Terraform state stays local on the owner's PC (owner's decision): no remote backend. This repo
   is the tooling for a ~200-firewall rollout; after it, Terraform is retired and SCM is managed
