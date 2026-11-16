@@ -200,16 +200,41 @@ def main(argv: list[str] | None = None) -> int:
             rep.err(at("DHCP Servers", r), f"interface '{r['interface']}' is not in the Interfaces sheet")
         if r["dhcp_type"] == "relay" and not r.get("relay_servers"):
             rep.err(at("DHCP Servers", r), "a DHCP relay needs relay_servers")
-    def subnets_of(iface):
-        """Networks an interface can have: its literal IP, or every value of its $variable."""
+    def folder_chain(folder):
+        """The folder and all its ancestors up to PANW."""
+        chain = []
+        while folder and folder not in chain:
+            chain.append(folder)
+            folder = folders.get(folder, "")
+        return chain
+
+    def firewalls_receiving(container):
+        """Serial numbers of the firewalls that get config from this container."""
+        kind, _, name = (container or "").partition(":")
+        out = []
+        for fw in s["Firewalls"]:
+            chain = folder_chain(fw.get("folder"))
+            if (kind == "device" and fw["serial_number"] == name
+                    or kind == "folder" and name in chain
+                    or kind == "snippet" and (name in split_list(fw.get("snippets"))
+                                              or any(fs["snippet"] == name and fs["folder"] in chain
+                                                     for fs in s["Folder Snippets"]))):
+                out.append(fw)
+        return out
+
+    def subnets_on(iface, serial):
+        """Networks of an interface on one firewall: literal IP, or that firewall's value of the $variable
+        (its device-level value if set, otherwise the folder/snippet default)."""
         nets = []
         for ip in split_list(interfaces.get(iface, {}).get("ip")):
-            values = [ip] if not ip.startswith("$") else [x["value"] for x in s["Variables"] if x["name"] == ip]
-            for val in values:
-                try:
-                    nets.append(ipaddress.ip_interface(val).network)
-                except ValueError:
-                    pass
+            if ip.startswith("$"):
+                rows = [x for x in s["Variables"] if x["name"] == ip]
+                own = [x["value"] for x in rows if x.get("device") == serial]
+                ip = (own or [x["value"] for x in rows if not x.get("device")] or [None])[0]
+            try:
+                nets.append(ipaddress.ip_interface(ip).network)
+            except (ValueError, TypeError):
+                pass
         return nets
 
     def in_pool(ip, pools):
@@ -238,10 +263,16 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError:
             rep.err(at("DHCP Reservations", r), f"'{r['ip']}' is not an IP address")
             ip = None
-        nets = subnets_of(r["interface"])
-        if ip and nets and not any(ip in n for n in nets):
-            rep.err(at("DHCP Reservations", r), f"{ip} is outside every subnet of {r['interface']} "
-                                                f"({', '.join(sorted({str(n) for n in nets}))})")
+        receivers = firewalls_receiving(r.get("_container"))
+        if not receivers:
+            rep.warn(at("DHCP Reservations", r), f"{r.get('_container')} is not attached to any firewall in the "
+                                                 "Firewalls sheet, so the subnet could not be checked")
+        for fw in receivers if ip else []:
+            nets = subnets_on(r["interface"], fw["serial_number"])
+            if nets and not any(ip in n for n in nets):
+                name = fw.get("display_name") or fw["serial_number"]
+                rep.err(at("DHCP Reservations", r), f"{ip} is outside {r['interface']} on {name} "
+                                                    f"({', '.join(str(n) for n in nets)})")
         if ip and srv and split_list(srv.get("ip_pool")) and not in_pool(ip, split_list(srv["ip_pool"])):
             rep.warn(at("DHCP Reservations", r), f"{ip} is outside the server's ip_pool - PAN-OS expects reserved "
                                                  "addresses inside the pool when a pool is set")
