@@ -176,12 +176,14 @@ SHEETS = [
 
     ("DHCP Servers", "scm_dhcp_interface",
      "DHCP server or relay per interface. One row per interface and container. Site-specific DHCP (reservations) "
-     "goes in the site snippet, because the server, its pool and its reservations are one object in SCM.",
+     "goes in the site snippet, because the server, its pool and its reservations are one object in SCM. "
+     "Leave ip_pool empty for reservations only: then only reserved MAC addresses get an address.",
      [("interface", R, "Layer 3 interface or subinterface from the Interfaces sheet, e.g. ethernet1/2.101.", None),
       CONTAINER_F, CONTAINER_S,
       ("dhcp_type", R, "server = the firewall hands out addresses · relay = forward to central DHCP servers.", ["server", "relay"]),
       ("mode", O, "server only. Default enabled.", ["enabled", "auto", "disabled"]),
-      ("ip_pool", C, f"server: address ranges or subnets, e.g. 10.20.101.100-10.20.101.199. {SEP}", None),
+      ("ip_pool", O, f"server: address ranges or subnets, e.g. 10.20.101.100-10.20.101.199. {SEP} "
+                     "Empty = reservations only (needs at least one DHCP Reservations row).", None),
       ("gateway", O, "server: default gateway handed to clients (normally the interface IP, without mask).", None),
       ("subnet_mask", O, "server: e.g. 255.255.255.0.", None),
       ("dns_primary", O, "server: primary DNS server.", None),
@@ -191,14 +193,14 @@ SHEETS = [
       ("lease_minutes", O, "server: lease time in minutes. Empty = default.", None),
       ("probe_ip", O, "server: ping an address before handing it out.", YN),
       ("relay_servers", C, f"relay: DHCP server IPs. {SEP}", None)],
-     ["ethernet1/2.101", "", "EXAMPLE-SITE-0001", "server", "enabled", "10.20.101.100-10.20.101.199", "10.20.101.1",
+     ["ethernet1/2.101", "", "EXAMPLE-SITE-0001", "server", "enabled", "", "10.20.101.1",
       "255.255.255.0", "8.8.8.8", "1.1.1.1", "", "", "1440", "yes", ""]),
 
     ("DHCP Reservations", "scm_dhcp_interface (server.reserved)",
      "Fixed IP per MAC address (e.g. access points). Each row must match a DHCP Servers row with the same interface and container.",
      [("interface", R, "Interface of the DHCP server, e.g. ethernet1/2.101.", None),
       CONTAINER_F, CONTAINER_S,
-      ("ip", R, "Reserved IP, inside the interface subnet (normally outside the pool).", None),
+      ("ip", R, "Reserved IP, inside the interface subnet. If the server also has a pool, it must be inside the pool.", None),
       ("mac", R, "Client MAC address, e.g. 00:11:22:33:44:55.", None),
       ("description", O, "e.g. the access point name.", None)],
      ["ethernet1/2.101", "", "EXAMPLE-SITE-0001", "10.20.101.11", "00:00:5e:00:53:01", "AP-SITE-0001-01"]),

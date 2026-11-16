@@ -56,7 +56,8 @@ Hard limits are also enforced in `.claude/settings.json`.
 - One firewall per site. Site-only config (e.g. access-point DHCP reservations) lives in a site
   snippet `PANW-SITE-<id>` attached to that firewall via the Firewalls sheet `snippets` column
   (owner's decision). A DHCP server, its pool and its reservations are one `scm_dhcp_interface`,
-  so they always sit together in the site snippet. Fixed WAN IPs stay as device variables (`$wan_ip`).
+  so they always sit together in the site snippet. Access-point DHCP is reservations only (no pool),
+  so only reserved MACs get an address. Fixed WAN IPs stay as device variables (`$wan_ip`).
 - Before automating anything, check `docs/api/SCM_API_ENDPOINTS.md`: prefer Terraform when the
   endpoint has a `scm_*` resource; if it is API-only, propose a script and ask first; if it is not
   listed, the API cannot do it.

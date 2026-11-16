@@ -7,6 +7,7 @@ objects that may already exist in SCM are reported as warnings, not errors.
 
 Usage:  .venv\\Scripts\\python scripts\\validate_workbook.py <workbook.xlsx>
 """
+import ipaddress
 import re
 import sys
 from collections import defaultdict
@@ -197,10 +198,33 @@ def main(argv: list[str] | None = None) -> int:
         servers[(r.get("_container"), r["interface"])] = r
         if r["interface"] not in interfaces:
             rep.err(at("DHCP Servers", r), f"interface '{r['interface']}' is not in the Interfaces sheet")
-        if r["dhcp_type"] == "server" and not r.get("ip_pool"):
-            rep.err(at("DHCP Servers", r), "a DHCP server needs ip_pool")
         if r["dhcp_type"] == "relay" and not r.get("relay_servers"):
             rep.err(at("DHCP Servers", r), "a DHCP relay needs relay_servers")
+    def subnets_of(iface):
+        """Networks an interface can have: its literal IP, or every value of its $variable."""
+        nets = []
+        for ip in split_list(interfaces.get(iface, {}).get("ip")):
+            values = [ip] if not ip.startswith("$") else [x["value"] for x in s["Variables"] if x["name"] == ip]
+            for val in values:
+                try:
+                    nets.append(ipaddress.ip_interface(val).network)
+                except ValueError:
+                    pass
+        return nets
+
+    def in_pool(ip, pools):
+        for pool in pools:
+            try:
+                if "-" in pool:
+                    lo, hi = (ipaddress.ip_address(x.strip()) for x in pool.split("-", 1))
+                    if lo <= ip <= hi:
+                        return True
+                elif ip in ipaddress.ip_network(pool, strict=False):
+                    return True
+            except ValueError:
+                return True  # unparsable pool (e.g. a variable): don't flag
+        return False
+
     used = defaultdict(set)
     for r in s["DHCP Reservations"]:
         key = (r.get("_container"), r["interface"])
@@ -209,6 +233,18 @@ def main(argv: list[str] | None = None) -> int:
             rep.err(at("DHCP Reservations", r), f"no DHCP Servers row for {r['interface']} in {key[0]}")
         elif srv["dhcp_type"] != "server":
             rep.err(at("DHCP Reservations", r), f"{r['interface']} in {key[0]} is a relay, not a server")
+        try:
+            ip = ipaddress.ip_address(r["ip"])
+        except ValueError:
+            rep.err(at("DHCP Reservations", r), f"'{r['ip']}' is not an IP address")
+            ip = None
+        nets = subnets_of(r["interface"])
+        if ip and nets and not any(ip in n for n in nets):
+            rep.err(at("DHCP Reservations", r), f"{ip} is outside every subnet of {r['interface']} "
+                                                f"({', '.join(sorted({str(n) for n in nets}))})")
+        if ip and srv and split_list(srv.get("ip_pool")) and not in_pool(ip, split_list(srv["ip_pool"])):
+            rep.warn(at("DHCP Reservations", r), f"{ip} is outside the server's ip_pool - PAN-OS expects reserved "
+                                                 "addresses inside the pool when a pool is set")
         if not MAC.match(r["mac"]):
             rep.err(at("DHCP Reservations", r), f"MAC '{r['mac']}' is not like 00:11:22:33:44:55")
         for field in ("ip", "mac"):
@@ -216,6 +252,10 @@ def main(argv: list[str] | None = None) -> int:
             if v in used[(key, field)]:
                 rep.err(at("DHCP Reservations", r), f"{field} {r[field]} is reserved twice on {r['interface']}")
             used[(key, field)].add(v)
+
+    for key, r in servers.items():
+        if r["dhcp_type"] == "server" and not r.get("ip_pool") and not used[(key, "ip")]:
+            rep.err(at("DHCP Servers", r), "a DHCP server needs ip_pool or at least one DHCP Reservations row")
 
     # Policy references
     zones = {r["name"] for r in s["Zones"]}
