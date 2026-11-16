@@ -274,6 +274,30 @@ class Builder:
             self.emit(f2, a, {"name": name, **self.container(vrf_rows[0]), "vrf": vrfs},
                       self.deps(("interface", iface_deps), ("variable", var_deps)))
 
+        # DHCP - one scm_dhcp_interface per interface + container; reservations folded into server.reserved
+        scope = lambda r: r.get("folder") or r.get("snippet") or r.get("device")  # noqa: E731
+        reserved = defaultdict(list)
+        for r in S["DHCP Reservations"]:
+            reserved[(scope(r), r["interface"])].append(
+                clean({"name": r["ip"], "mac": r["mac"].lower(), "description": r.get("description")}))
+        for r in S["DHCP Servers"]:
+            a = self.address("scm_dhcp_interface", scope(r), r["interface"])
+            body = {"name": r["interface"], **self.container(r)}
+            if r["dhcp_type"] == "relay":
+                body["relay"] = {"ip": {"enabled": True, "server": split_list(r["relay_servers"])}}
+            else:
+                option = clean({
+                    "gateway": r.get("gateway"), "subnet_mask": r.get("subnet_mask"),
+                    "dns": clean({"primary": r.get("dns_primary"), "secondary": r.get("dns_secondary")}) or None,
+                    "dns_suffix": r.get("dns_suffix"),
+                    "ntp": clean({"primary": r.get("ntp_primary")}) or None,
+                    "lease": {"timeout": num(r["lease_minutes"])} if r.get("lease_minutes") else None})
+                body["server"] = clean({"mode": r.get("mode") or "enabled", "ip_pool": split_list(r["ip_pool"]),
+                                        "probe_ip": yn(r.get("probe_ip")), "option": option,
+                                        "reserved": reserved.get((scope(r), r["interface"]), [])})
+            self.emit(f2, a, body, self.deps(("interface", [r["interface"]]),
+                                             ("variable", vars_in(r.get("ip_pool"), r.get("gateway")))))
+
         # Policy - each rule depends on the previous one in the same container + rulebase (row order)
         last = {}
         for r in S["Security Rules"]:
@@ -334,7 +358,8 @@ def main() -> int:
         return 1
     sheets = {n: read_sheet(path, n) for n in (
         "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Addresses", "Address Groups",
-        "Services", "Service Groups", "Interfaces", "Zones", "Logical Routers", "Routes", "Security Rules", "NAT Rules")}
+        "Services", "Service Groups", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
+        "DHCP Reservations", "Security Rules", "NAT Rules")}
     blocks = Builder(sheets).build()
 
     digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]

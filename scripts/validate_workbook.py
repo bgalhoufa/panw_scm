@@ -21,6 +21,7 @@ SCOPE_ROOT = "PANW"
 ANY = {"any"}
 PREDEFINED_SERVICES = {"application-default", "service-http", "service-https"}
 VAR = re.compile(r"^\$[A-Za-z0-9_]+$")
+MAC = re.compile(r"^[0-9a-f]{2}([:-][0-9a-f]{2}){5}$", re.I)
 
 
 class Report:
@@ -51,8 +52,8 @@ def main(argv: list[str] | None = None) -> int:
     rep = Report()
     s = {name: read_sheet(path, name) for name in (
         "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Addresses", "Address Groups",
-        "Services", "Service Groups", "Interfaces", "Zones", "Logical Routers", "Routes", "Security Rules",
-        "NAT Rules", "Firewalls")}
+        "Services", "Service Groups", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
+        "DHCP Reservations", "Security Rules", "NAT Rules", "Firewalls")}
     at = lambda sheet, r: f"{sheet} row {r['_row']}"  # noqa: E731
 
     # Required fields
@@ -110,14 +111,16 @@ def main(argv: list[str] | None = None) -> int:
         return f"{kind}:{name}"
 
     CONTAINER_SHEETS = ("Tags", "Variables", "Addresses", "Address Groups", "Services", "Service Groups",
-                        "Interfaces", "Zones", "Logical Routers", "Security Rules", "NAT Rules")
+                        "Interfaces", "Zones", "Logical Routers", "DHCP Servers", "DHCP Reservations",
+                        "Security Rules", "NAT Rules")
     seen = defaultdict(set)
     for sheet in CONTAINER_SHEETS:
         for r in s[sheet]:
             c = container(sheet, r)
-            if c and r.get("name") in seen[(sheet, c)]:
-                rep.err(at(sheet, r), f"duplicate name '{r['name']}' in {c}")
-            seen[(sheet, c)].add(r.get("name"))
+            key = r.get("name") or (r.get("interface") if sheet == "DHCP Servers" else None)
+            if c and key and key in seen[(sheet, c)]:
+                rep.err(at(sheet, r), f"duplicate '{key}' in {c}")
+            seen[(sheet, c)].add(key)
             r["_container"] = c
 
     tags = {r["name"] for r in s["Tags"]}
@@ -188,6 +191,32 @@ def main(argv: list[str] | None = None) -> int:
             rep.err(at("Routes", r), f"nexthop is required for {r['nexthop_type']}")
         check_var("Routes", r, "nexthop")
 
+    # DHCP: one server per interface + container; reservations attach to a server row
+    servers = {}
+    for r in s["DHCP Servers"]:
+        servers[(r.get("_container"), r["interface"])] = r
+        if r["interface"] not in interfaces:
+            rep.err(at("DHCP Servers", r), f"interface '{r['interface']}' is not in the Interfaces sheet")
+        if r["dhcp_type"] == "server" and not r.get("ip_pool"):
+            rep.err(at("DHCP Servers", r), "a DHCP server needs ip_pool")
+        if r["dhcp_type"] == "relay" and not r.get("relay_servers"):
+            rep.err(at("DHCP Servers", r), "a DHCP relay needs relay_servers")
+    used = defaultdict(set)
+    for r in s["DHCP Reservations"]:
+        key = (r.get("_container"), r["interface"])
+        srv = servers.get(key)
+        if srv is None:
+            rep.err(at("DHCP Reservations", r), f"no DHCP Servers row for {r['interface']} in {key[0]}")
+        elif srv["dhcp_type"] != "server":
+            rep.err(at("DHCP Reservations", r), f"{r['interface']} in {key[0]} is a relay, not a server")
+        if not MAC.match(r["mac"]):
+            rep.err(at("DHCP Reservations", r), f"MAC '{r['mac']}' is not like 00:11:22:33:44:55")
+        for field in ("ip", "mac"):
+            v = r[field].lower()
+            if v in used[(key, field)]:
+                rep.err(at("DHCP Reservations", r), f"{field} {r[field]} is reserved twice on {r['interface']}")
+            used[(key, field)].add(v)
+
     # Policy references
     zones = {r["name"] for r in s["Zones"]}
     addresses = {r["name"] for r in s["Addresses"]} | {r["name"] for r in s["Address Groups"]}
@@ -225,6 +254,9 @@ def main(argv: list[str] | None = None) -> int:
         if not in_scope(r["folder"]):
             rep.err(at("Firewalls", r), f"folder '{r['folder']}' is not PANW or below it")
         check_labels("Firewalls", r)
+        for sn in split_list(r.get("snippets")):
+            if sn not in snippets:
+                rep.warn(at("Firewalls", r), f"snippet '{sn}' is not in the Snippets sheet - it must already exist")
         if not r.get("wave"):
             rep.warn(at("Firewalls", r), "no wave set")
 
