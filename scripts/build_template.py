@@ -265,12 +265,13 @@ SHEETS = [
      "Firewalls already registered to the tenant: put each one in its folder and set labels / snippets.",
      [("serial_number", R, "Firewall serial number, e.g. 021201119434. It must already appear in SCM (registered to this tenant).", None),
       ("folder", R, "Target folder: PANW or a folder below it.", None),
+      ("site_id", O, "Site number, e.g. 001. Names the onboarding rule (Onboard_Site001). Must be unique.", None),
       ("display_name", O, "Name shown in SCM. Empty = keep the current one.", None),
       ("description", O, "Free text. Empty = keep the current one.", None),
       ("labels", O, f"Device labels, from the Labels sheet or already in SCM. {SEP} Empty = keep the current ones.", None),
       ("snippets", O, f"Snippets applied to this firewall only. {SEP} Empty = keep the current ones.", None),
       ("wave", O, "Rollout wave number (1, 2, 3 ...). Lets each batch be planned and applied on its own.", None)],
-     ["EXAMPLE-0123456789", "EXAMPLE-SITES", "FW-BRANCH-01", "Branch 01 PA-440", "BRANCH", "", "1"]),
+     ["EXAMPLE-0123456789", "EXAMPLE-SITES", "001", "FW-BRANCH-01", "Branch 01 PA-440", "BRANCH", "", "1"]),
 ]
 
 README_ROWS = [

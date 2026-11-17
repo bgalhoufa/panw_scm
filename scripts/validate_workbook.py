@@ -340,6 +340,13 @@ def main(argv: list[str] | None = None) -> int:
                 rep.warn(at("Firewalls", r), f"snippet '{sn}' is not in the Snippets sheet - it must already exist")
         if not r.get("wave"):
             rep.warn(at("Firewalls", r), "no wave set")
+    site_ids = defaultdict(list)
+    for r in s["Firewalls"]:
+        if r.get("site_id"):
+            site_ids[r["site_id"].zfill(3) if r["site_id"].isdigit() else r["site_id"]].append(r["_row"])
+    for sid, rows_ in site_ids.items():
+        if len(rows_) > 1:
+            rep.err("Firewalls", f"site_id {sid} is used on rows {', '.join(map(str, rows_))}")
 
     # Scope: SCM only resolves a reference inside the same snippet, or in the same folder and the
     # folders above it (a firewall sees its folder chain). Anything else fails at apply time.

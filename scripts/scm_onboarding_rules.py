@@ -31,6 +31,10 @@ RULES = "/config/setup/device-onboarding/v1/onboarding-rules"
 
 
 def rule_name(row: dict) -> str:
+    """Onboard_Site001 from site_id (zero-padded), else Onboard_<display name or serial>."""
+    site = row.get("site_id", "")
+    if site:
+        return f"Onboard_Site{site.zfill(3) if site.isdigit() else re.sub(r'[^A-Za-z0-9_]', '_', site)}"
     base = row.get("display_name") or row["serial_number"]
     return "Onboard_" + re.sub(r"[^A-Za-z0-9_]", "_", base)
 
