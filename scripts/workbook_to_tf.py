@@ -297,7 +297,8 @@ class Builder:
                                         "probe_ip": yn(r.get("probe_ip")), "option": option,
                                         "reserved": reserved.get((scope(r), r["interface"]), [])})
             self.emit(f2, a, body, self.deps(("interface", [r["interface"]]),
-                                             ("variable", vars_in(r.get("ip_pool"), r.get("gateway")))))
+                                             ("variable", vars_in(r.get("ip_pool"), r.get("gateway"), r.get("dns_primary"),
+                                                                  r.get("dns_secondary"), r.get("ntp_primary")))))
 
         # Policy - each rule depends on the previous one in the same container + rulebase (row order)
         last = {}

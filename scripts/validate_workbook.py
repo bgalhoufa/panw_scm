@@ -229,14 +229,18 @@ def main(argv: list[str] | None = None) -> int:
         return out
 
     def subnets_on(iface, serial):
-        """Networks of an interface on one firewall: literal IP, or that firewall's value of the $variable
-        (its device-level value if set, otherwise the folder/snippet default)."""
+        """Networks of an interface on one firewall: literal IP, or that firewall's value of the $variable,
+        resolved like SCM does - the firewall's own value, else the closest folder up its folder chain,
+        else any other default (e.g. a snippet)."""
+        chain = folder_chain(next((f.get("folder") for f in s["Firewalls"] if f["serial_number"] == serial), None))
         nets = []
         for ip in split_list(interfaces.get(iface, {}).get("ip")):
             if ip.startswith("$"):
                 rows = [x for x in s["Variables"] if x["name"] == ip]
                 own = [x["value"] for x in rows if x.get("device") == serial]
-                ip = (own or [x["value"] for x in rows if not x.get("device")] or [None])[0]
+                by_folder = {x["folder"]: x["value"] for x in rows if x.get("folder")}
+                nearest = [by_folder[f] for f in chain if f in by_folder]
+                ip = (own or nearest or [x["value"] for x in rows if not x.get("device")] or [None])[0]
             try:
                 nets.append(ipaddress.ip_interface(ip).network)
             except (ValueError, TypeError):
@@ -337,7 +341,77 @@ def main(argv: list[str] | None = None) -> int:
         if not r.get("wave"):
             rep.warn(at("Firewalls", r), "no wave set")
 
-    counts = ", ".join(f"{k}: {len(v)}" for k, v in s.items() if v)
+    # Scope: SCM only resolves a reference inside the same snippet, or in the same folder and the
+    # folders above it (a firewall sees its folder chain). Anything else fails at apply time.
+    defined = defaultdict(list)          # (kind, name) -> containers that define it
+    kinds = {"Interfaces": "interface", "Zones": "zone", "Addresses": "address", "Address Groups": "address",
+             "Services": "service", "Service Groups": "service", "Tags": "tag", "Variables": "variable"}
+    for sheet, kind in kinds.items():
+        for r in s[sheet]:
+            if r.get("_container") and not (sheet == "Variables" and r.get("device")):
+                defined[(kind, r["name"])].append(r["_container"])
+    fw_folder = {r["serial_number"]: r.get("folder") for r in s["Firewalls"]}
+
+    def visible_from(container):
+        kind, _, name = (container or "").partition(":")
+        if kind == "snippet":
+            return {container}
+        if kind == "folder":
+            return {f"folder:{f}" for f in folder_chain(name)}
+        if kind == "device":
+            return {container} | {f"folder:{f}" for f in folder_chain(fw_folder.get(name))}
+        return set()
+
+    def check_scope(sheet, r, kind, names):
+        where = r.get("_container")
+        if not where:
+            return
+        seen_here = visible_from(where)
+        for n in names:
+            if not n or n.lower() == "any" or (kind == "service" and n in PREDEFINED_SERVICES):
+                continue
+            homes = defined.get((kind, n))
+            if homes and not seen_here & set(homes):
+                rep.err(at(sheet, r), f"{kind} '{n}' is defined in {', '.join(sorted(set(homes)))}, which {where} "
+                                      "cannot see - SCM only resolves references in the same snippet or up the folder chain")
+
+    vrs = lambda *vals: [v for val in vals for v in split_list(val) if v.startswith("$")]  # noqa: E731
+    for r in s["Interfaces"]:
+        check_scope("Interfaces", r, "interface", [r.get("parent_interface")])
+        check_scope("Interfaces", r, "variable", vrs(r.get("ip")))
+    for r in s["Zones"]:
+        check_scope("Zones", r, "interface", split_list(r.get("interfaces")))
+    routes_of = defaultdict(list)
+    for rt in s["Routes"]:
+        routes_of[(rt["logical_router"], rt["vrf_name"])].append(rt)
+    for r in s["Logical Routers"]:
+        check_scope("Logical Routers", r, "interface", split_list(r.get("interfaces")))
+        for rt in routes_of[(r["name"], r["vrf_name"])]:
+            check_scope("Logical Routers", r, "interface", [rt.get("interface")])
+            check_scope("Logical Routers", r, "variable", vrs(rt.get("nexthop")))
+    for r in s["DHCP Servers"]:
+        check_scope("DHCP Servers", r, "interface", [r["interface"]])
+        check_scope("DHCP Servers", r, "variable", vrs(r.get("gateway"), r.get("dns_primary"), r.get("dns_secondary"),
+                                                       r.get("ntp_primary"), r.get("ip_pool")))
+        for f in ("gateway", "dns_primary", "dns_secondary", "ntp_primary"):
+            check_var("DHCP Servers", r, f)
+    for sheet in ("Addresses", "Address Groups", "Services", "Service Groups"):
+        for r in s[sheet]:
+            check_scope(sheet, r, "tag", split_list(r.get("tag")))
+    for r in s["Address Groups"]:
+        check_scope("Address Groups", r, "address", split_list(r.get("static")))
+    for r in s["Service Groups"]:
+        check_scope("Service Groups", r, "service", split_list(r.get("members")))
+    for sheet in ("Security Rules", "NAT Rules"):
+        for r in s[sheet]:
+            check_scope(sheet, r, "zone", split_list(r.get("from")) + split_list(r.get("to")))
+            check_scope(sheet, r, "address", split_list(r.get("source")) + split_list(r.get("destination")))
+            check_scope(sheet, r, "service", split_list(r.get("service")))
+            check_scope(sheet, r, "tag", split_list(r.get("tag")))
+            if sheet == "NAT Rules":
+                check_scope(sheet, r, "interface", [r.get("to_interface"), r.get("src_interface")])
+
+    counts =", ".join(f"{k}: {len(v)}" for k, v in s.items() if v)
     print(f"Rows - {counts}\n")
     for line in rep.errors + rep.warnings:
         print(line)
