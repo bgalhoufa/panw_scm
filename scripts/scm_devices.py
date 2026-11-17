@@ -125,6 +125,7 @@ def main() -> int:
             print(f"WAIT    {where}: folder '{target}' does not exist in SCM yet - run terraform apply first")
             problems += 1
             continue
+        dev = api(token, "GET", f"/config/setup/v1/devices/{serial}")  # the list omits fields such as description
         current_folder = dev.get("folder") or ""
         if current_folder and not in_scope(current_folder, scm_folders) and not args.allow_out_of_scope_source:
             print(f"BLOCKED {where}: currently in '{current_folder}', outside PANW "
