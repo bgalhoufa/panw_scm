@@ -37,6 +37,14 @@ def op(host: str, key: str, cmd: str) -> str:
         return resp.read().decode("utf-8", errors="replace")
 
 
+def config(host: str, key: str, xpath: str) -> str:
+    """Read the firewall's effective configuration, including what SCM pushed (shown as src="tpl")."""
+    url = f"https://{host}/api/?" + urllib.parse.urlencode({"type": "config", "action": "get", "xpath": xpath})
+    req = urllib.request.Request(url, headers={"X-PAN-KEY": key})
+    with urllib.request.urlopen(req, timeout=60, context=CTX) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
 class Expected:
     """Everything the workbook says this firewall should have."""
 
@@ -142,11 +150,12 @@ def main() -> int:
         for v in values:
             if v and not v.startswith("$"):
                 check(f"DHCP {iface} hands out {v}", v in d, "not in show dhcp server settings")
+        cfg = config(host, key, f"/config/devices/entry/network/dhcp/interface/entry[@name='{iface}']/server/reserved")
         for r_iface, ip, mac in exp.reservations:
             if r_iface == iface:
-                check(f"DHCP {iface} reservation {ip} -> {mac}", ip in d or ip in op(
-                    host, key, "<show><config><running><xpath>devices/entry/network/dhcp</xpath></running></config></show>"),
-                    "reservation not found")
+                entry = re.search(rf'<entry name="{re.escape(ip)}"[^>]*>(.*?)</entry>', cfg, re.S)
+                check(f"DHCP {iface} reservation {ip} -> {mac}", bool(entry) and mac in entry.group(1).lower(),
+                      "reservation not found" if not entry else "different MAC")
 
     print(f"\n{sum(results)}/{len(results)} checks passed.")
     return 0 if all(results) else 1
