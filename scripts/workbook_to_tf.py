@@ -216,7 +216,8 @@ class Builder:
                 if yn(r.get("dhcp_client")) else None
             l3 = clean({"ip": ips, "dhcp_client": clean(dhcp) if dhcp else None, "mtu": num(r.get("mtu")),
                         "interface_management_profile": r.get("interface_management_profile")})
-            body = {"name": r["name"], **self.container(r), "comment": r.get("comment")}
+            body = {"name": r["name"], **self.container(r), "comment": r.get("comment"),
+                    "default_value": r.get("default_value") if r["interface_type"] != "layer3-subinterface" else None}
             deps = [("variable", vars_in(r.get("ip"), r.get("name")))]
             t = r["interface_type"]
             if t == "ethernet":

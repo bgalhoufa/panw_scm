@@ -156,10 +156,16 @@ def main(argv: list[str] | None = None) -> int:
     interfaces = {r["name"]: r for r in s["Interfaces"]}
     for r in s["Interfaces"]:
         check_var("Interfaces", r, "ip")
-        check_var("Interfaces", r, "name")
         t = r["interface_type"]
         if t == "ethernet" and not r.get("mode"):
             rep.err(at("Interfaces", r), "ethernet needs a mode")
+        if (r.get("folder") or r.get("snippet")) and not r["name"].startswith("$"):
+            rep.err(at("Interfaces", r), f"'{r['name']}': in a folder or snippet SCM only accepts interface variables "
+                                         "(names starting with $, e.g. $wan); put the physical port in default_value")
+        if t != "layer3-subinterface" and r["name"].startswith("$") and not r.get("default_value"):
+            rep.warn(at("Interfaces", r), f"{r['name']} has no default_value - map it to a physical port per firewall in SCM")
+        if t == "layer3-subinterface" and r.get("parent_interface") and not r["name"].startswith(r["parent_interface"] + "."):
+            rep.err(at("Interfaces", r), f"subinterface '{r['name']}' must be named {r['parent_interface']}.<VLAN>")
         if t == "layer3-subinterface":
             if r.get("parent_interface") not in interfaces:
                 rep.err(at("Interfaces", r), f"parent '{r.get('parent_interface')}' is not in the Interfaces sheet")

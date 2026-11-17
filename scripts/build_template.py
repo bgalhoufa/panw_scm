@@ -122,13 +122,17 @@ SHEETS = [
      ["EXAMPLE-svc-web", "PANW", "", "service-http;service-https;EXAMPLE-tcp-8443", ""]),
 
     ("Interfaces", "scm_ethernet_interface · scm_layer3_subinterface · scm_loopback_interface · scm_tunnel_interface",
-     "Interfaces. Assign them to zones in the Zones sheet and to routers in Logical Routers.",
+     "Interfaces. Assign them to zones in the Zones sheet and to routers in Logical Routers. In a folder or snippet "
+     "SCM only accepts interface variables: names start with $ and default_value holds the physical port.",
      [("interface_type", R, "Which kind of interface.", ["ethernet", "layer3-subinterface", "loopback", "tunnel"]),
-      ("name", R, "ethernet: ethernet1/1 (or $variable) · subinterface: ethernet1/1.100 · loopback: loopback.1 · tunnel: tunnel.1", None),
+      ("name", R, "Interface variable, e.g. $wan, $lan · subinterface: <parent>.<VLAN>, e.g. $lan.100 · loopback: $loopback1 · tunnel: $tunnel1. "
+                  "Use this name everywhere else (zones, routers, routes, NAT, DHCP).", None),
+      ("default_value", C, "ethernet / loopback / tunnel: physical port the variable maps to, e.g. ethernet1/1, loopback.1, tunnel.1. "
+                           "Not used for subinterfaces (they follow their parent).", None),
       CONTAINER_F, CONTAINER_S,
       ("mode", C, "ethernet only. layer3 (routed), layer2, tap, or aggregate (member of an AE group).", ["layer3", "layer2", "tap", "aggregate"]),
       ("aggregate_group", C, "ethernet + mode aggregate: AE group, e.g. ae1.", None),
-      ("parent_interface", C, "layer3-subinterface only: parent, e.g. ethernet1/1.", None),
+      ("parent_interface", C, "layer3-subinterface only: parent interface variable, e.g. $lan.", None),
       ("vlan_tag", C, "layer3-subinterface: VLAN tag (1-4094). ethernet layer2: VLAN tag.", None),
       ("ip", C, f"Layer 3 IPs with mask, e.g. 10.1.1.1/24 or $variable. {SEP} Leave empty if dhcp_client = yes.", None),
       ("dhcp_client", O, "ethernet layer3 / subinterface: get the IP by DHCP.", YN),
@@ -139,7 +143,7 @@ SHEETS = [
       ("link_duplex", O, "ethernet only.", ["auto", "half", "full"]),
       ("link_state", O, "ethernet only.", ["auto", "up", "down"]),
       ("comment", O, "Interface description.", None)],
-     ["ethernet", "ethernet1/1", "EXAMPLE-SITES", "", "layer3", "", "", "", "$EXAMPLE_wan_ip", "no", "",
+     ["ethernet", "$EXAMPLE_wan", "ethernet1/1", "EXAMPLE-SITES", "", "layer3", "", "", "", "$EXAMPLE_wan_ip", "no", "",
       "", "", "auto", "auto", "auto", "WAN uplink"]),
 
     ("Zones", "scm_zone", "Security zones and their interfaces.",
@@ -151,7 +155,7 @@ SHEETS = [
       ("log_setting", O, "Existing log forwarding profile.", None),
       ("enable_user_identification", O, "Enable User-ID.", YN),
       ("enable_device_identification", O, "Enable Device-ID.", YN)],
-     ["EXAMPLE-untrust", "EXAMPLE-SITES", "", "layer3", "ethernet1/1", "", "", "no", "no"]),
+     ["EXAMPLE-untrust", "EXAMPLE-SITES", "", "layer3", "$EXAMPLE_wan", "", "", "no", "no"]),
 
     ("Logical Routers", "scm_logical_router", "One row per router + VRF. Static routes go in the Routes sheet.",
      [("name", R, "Logical router name.", None),
@@ -159,7 +163,7 @@ SHEETS = [
       ("vrf_name", R, "VRF name. Use 'default' unless you need several VRFs.", None),
       ("interfaces", O, f"Layer 3 interfaces in this VRF. {SEP}", None),
       ("ecmp_enable", O, "Enable ECMP in this VRF.", YN)],
-     ["EXAMPLE-lr", "EXAMPLE-SITES", "", "default", "ethernet1/1;loopback.1", "no"]),
+     ["EXAMPLE-lr", "EXAMPLE-SITES", "", "default", "$EXAMPLE_wan;$EXAMPLE_lan.10", "no"]),
 
     ("Routes", "scm_logical_router (vrf.routing_table.ip.static_route)", "IPv4 static routes, added to the router + VRF from the Logical Routers sheet.",
      [("logical_router", R, "Router name from the Logical Routers sheet.", None),
@@ -172,13 +176,13 @@ SHEETS = [
       ("interface", O, "Egress interface (required when nexthop_type = none).", None),
       ("metric", O, "Metric (1-65535). Empty = 10.", None),
       ("admin_dist", O, "Administrative distance (10-240). Empty = default.", None)],
-     ["EXAMPLE-lr", "default", "default-route", "0.0.0.0/0", "ip_address", "203.0.113.9", "ethernet1/1", "10", ""]),
+     ["EXAMPLE-lr", "default", "default-route", "0.0.0.0/0", "ip_address", "203.0.113.9", "$EXAMPLE_wan", "10", ""]),
 
     ("DHCP Servers", "scm_dhcp_interface",
      "DHCP server or relay per interface. One row per interface and container. Site-specific DHCP (reservations) "
      "goes in the site snippet, because the server, its pool and its reservations are one object in SCM. "
      "Leave ip_pool empty for reservations only: then only reserved MAC addresses get an address.",
-     [("interface", R, "Layer 3 interface or subinterface from the Interfaces sheet, e.g. ethernet1/2.101.", None),
+     [("interface", R, "Layer 3 interface or subinterface from the Interfaces sheet, e.g. $lan.101.", None),
       CONTAINER_F, CONTAINER_S,
       ("dhcp_type", R, "server = the firewall hands out addresses · relay = forward to central DHCP servers.", ["server", "relay"]),
       ("mode", O, "server only. Default enabled.", ["enabled", "auto", "disabled"]),
@@ -193,17 +197,17 @@ SHEETS = [
       ("lease_minutes", O, "server: lease time in minutes. Empty = default.", None),
       ("probe_ip", O, "server: ping an address before handing it out.", YN),
       ("relay_servers", C, f"relay: DHCP server IPs. {SEP}", None)],
-     ["ethernet1/2.101", "", "EXAMPLE-SITE-0001", "server", "enabled", "", "10.20.101.1",
+     ["$EXAMPLE_lan.101", "", "EXAMPLE-SITE-0001", "server", "enabled", "", "10.20.101.1",
       "255.255.255.0", "8.8.8.8", "1.1.1.1", "", "", "1440", "yes", ""]),
 
     ("DHCP Reservations", "scm_dhcp_interface (server.reserved)",
      "Fixed IP per MAC address (e.g. access points). Each row must match a DHCP Servers row with the same interface and container.",
-     [("interface", R, "Interface of the DHCP server, e.g. ethernet1/2.101.", None),
+     [("interface", R, "Interface of the DHCP server, e.g. $lan.101.", None),
       CONTAINER_F, CONTAINER_S,
       ("ip", R, "Reserved IP, inside the interface subnet. If the server also has a pool, it must be inside the pool.", None),
       ("mac", R, "Client MAC address, e.g. 00:11:22:33:44:55.", None),
       ("description", O, "e.g. the access point name.", None)],
-     ["ethernet1/2.101", "", "EXAMPLE-SITE-0001", "10.20.101.11", "00:00:5e:00:53:01", "AP-SITE-0001-01"]),
+     ["$EXAMPLE_lan.101", "", "EXAMPLE-SITE-0001", "10.20.101.11", "00:00:5e:00:53:01", "AP-SITE-0001-01"]),
 
     ("Security Rules", "scm_security_rule", "Security policy. Rules are created in the order of the rows (top = first).",
      [("name", R, "Rule name (max 63).", None),
@@ -245,7 +249,7 @@ SHEETS = [
       ("service", R, "Original service: any or one service name.", None),
       ("source_translation", R, "Source NAT type. none = no source NAT.", ["none", "dynamic_ip_and_port", "dynamic_ip", "static_ip"]),
       ("src_translated_address", C, f"dynamic_ip_and_port / dynamic_ip: translated IPs or objects ({SEP}). static_ip: one IP / object.", None),
-      ("src_interface", C, "dynamic_ip_and_port: use this interface's IP instead of an address (e.g. ethernet1/1).", None),
+      ("src_interface", C, "dynamic_ip_and_port: use this interface's IP instead of an address (e.g. $wan).", None),
       ("src_interface_ip", O, "With src_interface: which interface IP to use (if it has several).", None),
       ("static_bi_directional", O, "static_ip only: also create the reverse NAT.", YN),
       ("dst_translated_address", O, "Destination NAT: translated IP / object. Empty = no destination NAT.", None),
@@ -253,8 +257,8 @@ SHEETS = [
       ("disabled", O, "Create the rule disabled.", YN),
       ("description", O, "Free text.", None),
       TAG],
-     ["EXAMPLE-snat-internet", "PANW", "", "pre", "ipv4", "EXAMPLE-trust", "EXAMPLE-untrust", "ethernet1/1",
-      "EXAMPLE-net-users", "any", "any", "dynamic_ip_and_port", "", "ethernet1/1", "", "", "", "", "no",
+     ["EXAMPLE-snat-internet", "PANW", "", "pre", "ipv4", "EXAMPLE-trust", "EXAMPLE-untrust", "$EXAMPLE_wan",
+      "EXAMPLE-net-users", "any", "any", "dynamic_ip_and_port", "", "$EXAMPLE_wan", "", "", "", "", "no",
       "Users hide-NAT to WAN", ""]),
 
     ("Firewalls", "SCM API PUT /config/setup/v1/devices/{serial} (scripts/scm_devices.py)",
