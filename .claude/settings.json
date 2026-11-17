@@ -35,7 +35,9 @@
       "PowerShell(terraform taint*)",
       "PowerShell(terraform force-unlock*)",
       "Bash(*scm_devices.py*--apply*)",
-      "PowerShell(*scm_devices.py*--apply*)"
+      "PowerShell(*scm_devices.py*--apply*)",
+      "Bash(*scm_onboarding_rules.py*--apply*)",
+      "PowerShell(*scm_onboarding_rules.py*--apply*)"
     ]
   }
 }

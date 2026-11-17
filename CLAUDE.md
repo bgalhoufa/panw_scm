@@ -7,7 +7,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 ## Claude CAN (without asking)
 - Read, write and refactor Terraform, Python scripts and docs in this repo.
 - Run read-only commands: `terraform fmt`, `init`, `validate`, `plan`, `show`, `output`,
-  `providers`, `python scripts/scm_auth_check.py`, and `scripts/scm_devices.py` without `--apply`.
+  `providers`, `python scripts/scm_auth_check.py`, and `scripts/scm_devices.py` and `scripts/scm_onboarding_rules.py` without `--apply`.
 - Install the Python packages listed in `requirements.txt` into `.venv` (add new ones there).
 - Make read-only (GET) calls to the SCM API.
 - Commit to git and push to `origin` (github.com/bgalhoufa/panw_scm).
@@ -18,6 +18,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 - Any non-GET call to the SCM API (POST / PUT / DELETE).
 - Adding new Terraform providers or modules from the registry.
 - `scripts/scm_devices.py --apply` (moves firewalls between folders); show the dry-run output first.
+- `scripts/scm_onboarding_rules.py --apply` (creates/updates onboarding rules); show the dry run first.
 - Creating GitHub Actions workflows or anything that runs automatically.
 
 ## Claude must NEVER
