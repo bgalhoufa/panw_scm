@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -29,16 +30,25 @@ PAGE = 50
 FIELDS = ("folder", "display_name", "description", "labels", "snippets")
 
 
-def api(token: str, method: str, path: str, body: dict | None = None) -> dict:
-    req = urllib.request.Request(
-        f"https://{HOST}{path}",
-        method=method,
-        data=json.dumps(body).encode() if body is not None else None,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        raw = resp.read()
-        return json.loads(raw) if raw else {}
+def api(token: str, method: str, path: str, body: dict | None = None, attempts: int = 5) -> dict:
+    """Call the SCM API. Network errors (DNS, timeouts) are retried; HTTP errors are raised at once."""
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(
+            f"https://{HOST}{path}",
+            method=method,
+            data=json.dumps(body).encode() if body is not None else None,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                raw = resp.read()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == attempts:
+                raise
+            time.sleep(3 * attempt)
 
 
 def list_all(token: str, path: str) -> list[dict]:

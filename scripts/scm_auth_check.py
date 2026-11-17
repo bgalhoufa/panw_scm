@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -39,8 +40,16 @@ def get_token(client_id: str, client_secret: str, scope: str) -> str:
             "Content-Type": "application/x-www-form-urlencoded",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.load(resp)["access_token"]
+    for attempt in range(1, 6):  # retry network errors (DNS, timeouts); HTTP errors raise at once
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.load(resp)["access_token"]
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 5:
+                raise
+            time.sleep(3 * attempt)
 
 
 def list_folders(token: str) -> list[dict]:
