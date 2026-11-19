@@ -87,7 +87,7 @@ def main() -> int:
             problems += 1
             continue
         if not in_scope(folder, folders):
-            print(f"ERROR   {where}: folder '{folder}' is not PANW or below it")
+            print(f"ERROR   {where}: folder '{folder}' is outside the managed roots (scripts/scope.py)")
             problems += 1
             continue
         rule = by_serial.get(serial)

@@ -23,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scm_auth_check import load_env_file  # noqa: E402
 from template_io import read_sheet, split_list  # noqa: E402
 
-SCOPE_ROOT = "PANW"
 CTX = ssl.create_default_context()
 CTX.check_hostname = False
 CTX.verify_mode = ssl.CERT_NONE  # firewall management certificates are self-signed in the lab
@@ -55,7 +54,7 @@ class Expected:
         fw = next((r for r in S["Firewalls"] if r["serial_number"] == serial), None)
         if fw is None:
             sys.exit(f"serial {serial} is not in the Firewalls sheet")
-        parents = {SCOPE_ROOT: ""} | {r["name"]: r["parent"] for r in S["Folders"]}
+        parents = {"PANW": ""} | {r["name"]: r["parent"] for r in S["Folders"]}
         chain, f = [], fw["folder"]
         while f and f not in chain:
             chain.append(f)

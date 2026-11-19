@@ -25,7 +25,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 ## Claude must NEVER
 - Run `terraform destroy` or `terraform apply -destroy`. Undo is done only through
   `scripts/deployments.py restore` + a reviewed plan (see the `scm-change` skill), and never
-  removes the PANW folder.
+  removes a managed root that still contains firewalls.
 - Push / commit the SCM candidate configuration to devices or Prisma Access
   ("Push Config" / jobs API). The repo owner does this manually in SCM.
 - Touch folders other than the ones listed under "Scope" below.
@@ -34,10 +34,11 @@ Hard limits are also enforced in `.claude/settings.json`.
 - Force-push or rewrite git history on `main`.
 
 ## Scope (SCM folders Claude may manage)
-- PANW (child of `ngfw-shared` / "All Firewalls") and every folder below it.
-  The folder tree is defined in `terraform/folders.tf`; new levels only on the owner's request.
-- All other folders (HOME-LAB, BALCOES, DATACENTERS, FLIGHT, Prisma Access, ...) are
-  read-only for Claude.
+- The managed roots listed in `scripts/scope.py` (`MANAGED_ROOTS`) and every folder below them.
+  Today: `VL-100` (site type 1XX, directly under All Firewalls) and `PANW` (lab folders only, until
+  the lab firewalls move out). New roots (e.g. `VL-200`) only on the owner's request.
+- All Firewalls (`ngfw-shared`) itself and every other folder (HOME-LAB, BALCOES, DATACENTERS,
+  FLIGHT, Prisma Access, ...) are read-only for Claude.
 
 ## Conventions
 - Credentials come only from environment variables / `.env` (see `.env.example`).
@@ -57,11 +58,12 @@ Hard limits are also enforced in `.claude/settings.json`.
   directly, so never design anything that needs `terraform destroy` or long-term state.
 - Per-firewall values are variables with `device = <serial>`; firewalls roll out in waves
   (`wave` column, `scm_devices.py --wave N`).
-- Folder-first design (owner's decision, 2026-11-17): PANW holds everything shared (interface
-  variables $wan/$lan/$lan.<VLAN>, zones, logical router, NAT, rules, objects, central variables such as
-  $dns_primary / $ntp_primary). One site folder per branch under PANW (e.g. PANW-BRANCH01) holds only its
-  variable values and its access-point DHCP (reservations only, no pool). Each firewall is placed in its
-  site folder; one firewall per site. Branch types / entities are labels, not folders.
+- Folder design (owner's decision, 2026-11-19): one top-level folder per site type (`VL-100` = 1XX
+  sites) holding everything shared by that type (interface variables $wan1/$wan2/$lan/$lan.<VLAN>, zones,
+  logical routers, DHCP relays, device settings, variables with placeholders); one folder per site below it
+  (`SITE003`, ...) holding only its variable values and local DHCP. Each firewall is placed in its site
+  folder; one firewall per site. Branch types / entities are labels, not folders. Hostname, SNMPv3 and
+  local superadmins are set over SSH by `scripts/fw_ssh_baseline.py` (no SCM API for them).
 - SCM scope rule: a reference resolves only inside the same snippet, or in the same folder and the
   folders above it. Snippets must be self-contained. In folders/snippets interfaces must be interface
   variables (`$name` + `default_value` = physical port). `validate_workbook.py` enforces both.

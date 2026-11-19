@@ -23,9 +23,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scm_auth_check import HOST, get_token, load_env_file  # noqa: E402
+from scope import in_scope as scope_in_scope  # noqa: E402
 from template_io import read_sheet, split_list  # noqa: E402
 
-SCOPE_ROOT = "PANW"
 PAGE = 50
 FIELDS = ("folder", "display_name", "description", "labels", "snippets")
 
@@ -63,14 +63,8 @@ def list_all(token: str, path: str) -> list[dict]:
 
 
 def in_scope(folder: str, parents: dict[str, str]) -> bool:
-    """True if folder is PANW or below it. parents maps folder -> parent."""
-    seen = set()
-    while folder and folder not in seen:
-        if folder == SCOPE_ROOT:
-            return True
-        seen.add(folder)
-        folder = parents.get(folder, "")
-    return False
+    """True if folder is a managed root (scripts/scope.py) or below one."""
+    return scope_in_scope(folder, parents)
 
 
 def main() -> int:
@@ -106,7 +100,7 @@ def main() -> int:
             problems += 1
             continue
         if not in_scope(target, parents):
-            print(f"ERROR   {where}: folder '{target}' is not PANW or below it")
+            print(f"ERROR   {where}: folder '{target}' is outside the managed roots (scripts/scope.py)")
             problems += 1
             continue
         dev = devices.get(serial)

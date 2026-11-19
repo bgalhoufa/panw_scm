@@ -21,7 +21,8 @@ import validate_workbook  # noqa: E402
 from template_io import read_sheet, split_list  # noqa: E402
 
 TF_DIR = Path(__file__).resolve().parent.parent / "terraform"
-SCOPE_ROOT = "PANW"
+SCOPE_ROOT = "PANW"   # root defined in folders.tf; other managed roots come from the workbook
+TOP = "ngfw-shared"
 PANW_REF = 'scm_folder.level1["PANW"].name'
 YES = {"yes": True, "no": False}
 
@@ -95,6 +96,8 @@ class Builder:
     def folder_expr(self, name):
         if name == SCOPE_ROOT:
             return Expr(PANW_REF)
+        if name == TOP:
+            return TOP
         if name in self.gen_folders:
             return Expr(f"{self.lookup('folder', name)[0]}.name")
         return name

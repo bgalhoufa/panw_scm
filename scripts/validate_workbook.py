@@ -16,9 +16,9 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from scope import MANAGED_ROOTS, TOP, in_scope as scope_in_scope  # noqa: E402
 from template_io import read_sheet, split_list  # noqa: E402
 
-SCOPE_ROOT = "PANW"
 ANY = {"any"}
 PREDEFINED_SERVICES = {"application-default", "service-http", "service-https"}
 VAR = re.compile(r"^\$[A-Za-z0-9_]+$")
@@ -65,18 +65,12 @@ def main(argv: list[str] | None = None) -> int:
                     rep.err(at(sheet, r), f"'{f}' is required")
 
     labels = {r["name"] for r in s["Labels"]}
-    folders = {SCOPE_ROOT: ""} | {r["name"]: r["parent"] for r in s["Folders"]}
+    folders = {"PANW": TOP} | {r["name"]: r["parent"] for r in s["Folders"]}
     snippets = {r["name"] for r in s["Snippets"]}
     serials = {r["serial_number"] for r in s["Firewalls"]}
 
     def in_scope(folder):
-        seen = set()
-        while folder and folder not in seen:
-            if folder == SCOPE_ROOT:
-                return True
-            seen.add(folder)
-            folder = folders.get(folder, "")
-        return False
+        return scope_in_scope(folder, folders)
 
     def check_labels(sheet, r, field="labels"):
         for lb in split_list(r.get(field)):
@@ -85,8 +79,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # Folders, snippets, folder snippets
     for r in s["Folders"]:
-        if r["parent"] not in folders:
-            rep.err(at("Folders", r), f"parent '{r['parent']}' is not PANW or a folder in this sheet")
+        if r["parent"] == TOP:
+            if r["name"] not in MANAGED_ROOTS:
+                rep.err(at("Folders", r), f"'{r['name']}' would sit directly under All Firewalls but is not a managed "
+                                          f"root - add it to MANAGED_ROOTS in scripts/scope.py first")
+        elif r["parent"] not in folders:
+            rep.err(at("Folders", r), f"parent '{r['parent']}' is not a managed root or a folder in this sheet")
         check_labels("Folders", r)
     for r in s["Snippets"]:
         check_labels("Snippets", r)
@@ -104,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
             return None
         kind, name = next(iter(options.items()))
         if kind == "folder" and not in_scope(name):
-            rep.err(at(sheet, r), f"folder '{name}' is not PANW or below it")
+            rep.err(at(sheet, r), f"folder '{name}' is outside the managed roots (scripts/scope.py)")
         if kind == "snippet" and name not in snippets:
             rep.warn(at(sheet, r), f"snippet '{name}' is not in the Snippets sheet - it must already exist")
         if kind == "device" and name not in serials:
@@ -334,7 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     # Firewalls
     for r in s["Firewalls"]:
         if not in_scope(r["folder"]):
-            rep.err(at("Firewalls", r), f"folder '{r['folder']}' is not PANW or below it")
+            rep.err(at("Firewalls", r), f"folder '{r['folder']}' is outside the managed roots (scripts/scope.py)")
         check_labels("Firewalls", r)
         for sn in split_list(r.get("snippets")):
             if sn not in snippets:
