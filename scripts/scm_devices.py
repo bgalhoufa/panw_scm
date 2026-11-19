@@ -72,7 +72,7 @@ def main() -> int:
     ap.add_argument("workbook", type=Path)
     ap.add_argument("--apply", action="store_true", help="write the changes to SCM (default: dry run)")
     ap.add_argument("--allow-out-of-scope-source", action="store_true",
-                    help="allow moving a firewall that currently sits in a folder outside PANW")
+                    help="allow moving a firewall that currently sits in a folder outside the managed roots (scope.py)")
     ap.add_argument("--wave", help="only process rows whose wave column equals this value")
     args = ap.parse_args()
 
@@ -122,7 +122,7 @@ def main() -> int:
         dev = api(token, "GET", f"/config/setup/v1/devices/{serial}")  # the list omits fields such as description
         current_folder = dev.get("folder") or ""
         if current_folder and not in_scope(current_folder, scm_folders) and not args.allow_out_of_scope_source:
-            print(f"BLOCKED {where}: currently in '{current_folder}', outside PANW "
+            print(f"BLOCKED {where}: currently in '{current_folder}', outside the managed roots "
                   f"(re-run with --allow-out-of-scope-source if this move is intended)")
             problems += 1
             continue
