@@ -5,7 +5,7 @@ root sits directly under All Firewalls (ngfw-shared). Adding a root here is the 
 decision; every script and the workbook checker read it from this file.
 """
 TOP = "ngfw-shared"                      # "All Firewalls" - never managed itself
-MANAGED_ROOTS = ("PANW", "VL-100")       # PANW: lab folders until their firewalls move; VL-100: site type 1XX
+MANAGED_ROOTS = ("PANW", "SITES-1XX", "SITES-2XX", "SITES-3XX")  # PANW: lab folders until their firewalls move
 
 
 def in_scope(folder: str, parents: dict[str, str]) -> bool:

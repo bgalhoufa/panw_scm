@@ -35,8 +35,8 @@ Hard limits are also enforced in `.claude/settings.json`.
 
 ## Scope (SCM folders Claude may manage)
 - The managed roots listed in `scripts/scope.py` (`MANAGED_ROOTS`) and every folder below them.
-  Today: `VL-100` (site type 1XX, directly under All Firewalls) and `PANW` (lab folders only, until
-  the lab firewalls move out). New roots (e.g. `VL-200`) only on the owner's request.
+  Today: `SITES-1XX`, `SITES-2XX`, `SITES-3XX` (site types, directly under All Firewalls) and `PANW` (lab folders only, until
+  the lab firewalls move out). New roots (e.g. mixed `SITES-1XX-3XX`) only on the owner's request.
 - All Firewalls (`ngfw-shared`) itself and every other folder (HOME-LAB, BALCOES, DATACENTERS,
   FLIGHT, Prisma Access, ...) are read-only for Claude.
 
@@ -58,7 +58,7 @@ Hard limits are also enforced in `.claude/settings.json`.
   directly, so never design anything that needs `terraform destroy` or long-term state.
 - Per-firewall values are variables with `device = <serial>`; firewalls roll out in waves
   (`wave` column, `scm_devices.py --wave N`).
-- Folder design (owner's decision, 2026-11-19): one top-level folder per site type (`VL-100` = 1XX
+- Folder design (owner's decision, 2026-11-19): one top-level folder per site type (`SITES-1XX`, `SITES-2XX`, `SITES-3XX`
   sites) holding everything shared by that type (interface variables $wan1/$wan2/$lan/$lan.<VLAN>, zones,
   logical routers, DHCP relays, device settings, variables with placeholders); one folder per site below it
   (`SITE003`, ...) holding only its variable values and local DHCP. Each firewall is placed in its site
