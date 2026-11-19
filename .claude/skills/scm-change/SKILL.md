@@ -25,6 +25,16 @@ description: Safe workflow for any Terraform change that will create, modify or 
 11. **Remind the user** the change is in the SCM candidate config and must be pushed from SCM.
     Never push it yourself.
 
+## Renaming an object that others reference
+
+Renaming (e.g. a management profile used by interfaces) plans as create new + update the
+referencing objects + destroy old, and Terraform may run the destroy in parallel with the
+updates; SCM then refuses it (409, "still referenced"). Do it in two applies:
+1. `terraform -chdir=terraform plan -out=tfplan -target=<each referencing resource>` - updates only,
+   check the plan shows 0 to destroy, apply.
+2. Normal plan - must show only the old object destroyed - apply, then record.
+`-target` is only used for these updates, never for deletions.
+
 ## Undo a deployment
 
 1. `.venv\Scripts\python scripts\deployments.py list` - pick the deployment to go back to
