@@ -91,7 +91,7 @@ class Shell:
                 time.sleep(0.2)
         raise TimeoutError(f"no CLI prompt after {timeout}s; last output: {mask(buf[-300:])!r}")
 
-    def run(self, cmd: str, timeout: float = 60) -> str:
+    def run(self, cmd: str, timeout: float = 180) -> str:  # PA-410 management planes can be slow
         self.chan.send(cmd + "\n")
         return self.read(timeout)
 
