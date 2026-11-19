@@ -20,7 +20,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 - `scripts/scm_devices.py --apply` (moves firewalls between folders); show the dry-run output first.
 - `scripts/scm_onboarding_rules.py --apply` (creates/updates onboarding rules); show the dry run first.
 - `scripts/scm_virtual_routers.py --apply` (creates/updates virtual routers); show the dry run first.
-- `scripts/fw_ssh_baseline.py --apply` (SSH to firewalls: hostname, SNMPv3, local superadmins, commit); show the dry run first.
+- `scripts/fw_ssh_baseline.py --apply` (SSH to firewalls: factory-default virtual wire cleanup, hostname, SNMPv3, local superadmins, commit); show the dry run first.
 - Creating GitHub Actions workflows or anything that runs automatically.
 
 ## Claude must NEVER
@@ -73,7 +73,9 @@ Hard limits are also enforced in `.claude/settings.json`.
   logical routers, DHCP relays, device settings, variables with placeholders); one folder per site below it
   (`SITE003`, ...) holding only its variable values and local DHCP. Each firewall is placed in its site
   folder; one firewall per site. Branch types / entities are labels, not folders. Hostname, SNMPv3 and
-  local superadmins are set over SSH by `scripts/fw_ssh_baseline.py` (no SCM API for them).
+  local superadmins are set over SSH by `scripts/fw_ssh_baseline.py` (no SCM API for them). Run it before the
+  first SCM push: it also removes the factory-default virtual wire (ethernet1/1 + 1/2), whose local definitions
+  override SCM's layer 3 interfaces and make the push fail.
 - SCM scope rule: a reference resolves only inside the same snippet, or in the same folder and the
   folders above it. Snippets must be self-contained. In folders/snippets interfaces must be interface
   variables (`$name` + `default_value` = physical port). `validate_workbook.py` enforces both.

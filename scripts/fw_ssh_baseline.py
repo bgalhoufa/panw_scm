@@ -1,6 +1,10 @@
 """Configure what SCM's API cannot, directly on each firewall over SSH, then commit.
 
 Per firewall (matched to its Firewalls row by serial number):
+  - factory cleanup removes the factory-default virtual wire (ethernet1/1 + 1/2, zones trust / untrust,
+                    rule1): its local definitions override SCM's layer 3 interfaces and the push fails
+                    ("zone ... type and interface ethernet1/1 type mismatch"). Each object is deleted
+                    only if it still looks like the factory default. Run the baseline before the first push.
   - hostname        SITE<site_id>, e.g. SITE003
   - SNMPv3          read-only view + user (auth SHA, priv AES), SNMP allowed on the management port
   - superadmins     local administrators nso and drctd (role-based superuser)
@@ -33,6 +37,17 @@ PROMPT = re.compile(r"[\r\n][^\r\n]*@[^\r\n]*[>#] ?$")
 ADMINS = {"nso": "FW_ADMIN_NSO_PASSWORD", "drctd": "FW_ADMIN_DRCTD_PASSWORD"}
 SNMP_VIEW = "ro-all"
 SECRET_KEYS = list(ADMINS.values()) + ["SNMPV3_AUTH_PASSWORD", "SNMPV3_PRIV_PASSWORD", "FW_SSH_PASSWORD"]
+# Factory-default objects (PA-400 series) that clash with the interfaces SCM pushes, in delete order:
+# (configure-mode check, text the check must show for it to still be the factory default, delete command)
+FACTORY_DEFAULTS = [
+    ("show rulebase security rules rule1", "untrust", "delete rulebase security rules rule1"),
+    ("show zone trust", "virtual-wire", "delete zone trust"),
+    ("show zone untrust", "virtual-wire", "delete zone untrust"),
+    ("show network virtual-wire default-vwire", "ethernet1/", "delete network virtual-wire default-vwire"),
+    ("show network interface ethernet ethernet1/1", "virtual-wire", "delete network interface ethernet ethernet1/1"),
+    ("show network interface ethernet ethernet1/2", "virtual-wire", "delete network interface ethernet ethernet1/2"),
+]
+REFUSED = re.compile(r"(?i)invalid syntax|unknown command|server error|error:")
 
 
 def hostname_for(row: dict) -> str:
@@ -116,6 +131,8 @@ def main() -> int:
         for r in rows.values():
             if args.wave is None or r.get("wave") == args.wave:
                 print(f"== {r['serial_number']} ({r.get('display_name')}, {r['folder']}):")
+                for check, marker, delete in FACTORY_DEFAULTS:
+                    print(f"    {delete:48} # only if '{check}' still shows {marker}")
                 for c in config_commands(r, {}):
                     print("   ", mask(c))
                 print("    commit")
@@ -152,9 +169,16 @@ def main() -> int:
                     raise RuntimeError(f"could not compute the password hash for {admin}")
                 phash[admin] = found.group(0)
             sh.run("configure")
+            for check, marker, delete in FACTORY_DEFAULTS:
+                shown = sh.run(check).split("\n", 1)[-1]  # drop the echoed command
+                if marker in shown:
+                    out = sh.run(delete)
+                    if REFUSED.search(out):
+                        raise RuntimeError(f"command refused: {delete}\n{mask(out)[-400:]}")
+                    print(f"        {prefix}: factory default removed: {delete}")
             for c in config_commands(row, phash):
                 out = sh.run(c)
-                if re.search(r"(?i)invalid syntax|unknown command|server error|error:", out):
+                if REFUSED.search(out):
                     raise RuntimeError(f"command refused: {mask(c)}\n{mask(out)[-400:]}")
             out = sh.run("commit", timeout=900)
             ok = "Configuration committed successfully" in out
