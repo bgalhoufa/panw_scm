@@ -73,7 +73,8 @@ class Shell:
         import paramiko
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # lab: firewall host keys not pre-loaded
-        self.client.connect(host, username=user, password=password, look_for_keys=False, allow_agent=False, timeout=30)
+        self.client.connect(host, username=user, password=password, look_for_keys=False, allow_agent=False, timeout=30,
+                            banner_timeout=60, auth_timeout=60)
         self.chan = self.client.invoke_shell(width=300, height=1000)
         self.read(60)
         self.run("set cli pager off")

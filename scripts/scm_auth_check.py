@@ -19,14 +19,24 @@ HOST = os.environ.get("SCM_HOST", "api.sase.paloaltonetworks.com")
 
 
 def load_env_file() -> None:
-    env_file = Path(__file__).resolve().parent.parent / ".env"
-    if not env_file.exists():
-        return
-    for line in env_file.read_text().splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip())
+    """Load credentials from the repo root: .env.<SCM_TENANT> first (when SCM_TENANT is set), then .env.
+
+    Values already in the environment win, then the tenant file, then .env - so SCM_TENANT=customer
+    uses that tenant's SCM_* credentials while shared settings still come from .env.
+    """
+    root = Path(__file__).resolve().parent.parent
+    tenant = os.environ.get("SCM_TENANT", "").strip()
+    files = ([root / f".env.{tenant}"] if tenant else []) + [root / ".env"]
+    if tenant and not files[0].exists():
+        raise SystemExit(f"SCM_TENANT={tenant} but {files[0].name} does not exist")
+    for env_file in files:
+        if not env_file.exists():
+            continue
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip())
 
 
 def get_token(client_id: str, client_secret: str, scope: str) -> str:

@@ -40,3 +40,7 @@ __pycache__/
 
 # Filled-in workbooks (customer data) - commit only on request
 inputs/
+
+# Per-tenant credentials (.env.<tenant>)
+.env.*
+!.env.example
