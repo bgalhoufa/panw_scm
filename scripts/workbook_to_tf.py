@@ -177,6 +177,14 @@ class Builder:
             self.register("variable", r["name"], a)
             self.emit(f1, a, {"name": r["name"], "type": r["type"], "value": r["value"], **self.container(r),
                               "description": r.get("description")}, deps)
+        for r in S["Device Settings"]:
+            a = self.address("scm_service_setting", r.get("folder") or r.get("snippet"), "services")
+            ntp = clean({
+                "primary_ntp_server": {"ntp_server_address": r["ntp_primary"]} if r.get("ntp_primary") else None,
+                "secondary_ntp_server": {"ntp_server_address": r["ntp_secondary"]} if r.get("ntp_secondary") else None})
+            dns = clean({"primary": r.get("dns_primary"), "secondary": r.get("dns_secondary")})
+            self.emit(f1, a, {**self.container(r), "services": clean({
+                "dns_setting": {"servers": dns} if dns else None, "ntp_servers": ntp or None})})
         tag_dep = lambda r: ("tag", split_list(r.get("tag")))  # noqa: E731
         for r in S["Addresses"]:
             a = self.address("scm_address", r.get("folder") or r.get("snippet"), r["name"]); self.register("address", r["name"], a)
@@ -206,6 +214,13 @@ class Builder:
             self.register("service", r["name"], a)
 
         # Network
+        for r in S["Mgmt Profiles"]:
+            a = self.address("scm_interface_management_profile", r.get("folder") or r.get("snippet"), r["name"])
+            self.register("mgmt_profile", r["name"], a)
+            self.emit(f2, a, {"name": r["name"], **self.container(r), "ping": yn(r.get("ping")), "https": yn(r.get("https")),
+                              "ssh": yn(r.get("ssh")), "response_pages": yn(r.get("response_pages")),
+                              "userid_service": yn(r.get("userid_service")),
+                              "permitted_ip": [{"name": ip} for ip in split_list(r.get("permitted_ip"))]})
         rtypes = {"ethernet": "scm_ethernet_interface", "layer3-subinterface": "scm_layer3_subinterface",
                   "loopback": "scm_loopback_interface", "tunnel": "scm_tunnel_interface"}
         vars_in = lambda *vals: [v for val in vals for v in split_list(val) if v.startswith("$")]  # noqa: E731
@@ -218,7 +233,8 @@ class Builder:
                         "interface_management_profile": r.get("interface_management_profile")})
             body = {"name": r["name"], **self.container(r), "comment": r.get("comment"),
                     "default_value": r.get("default_value") if r["interface_type"] != "layer3-subinterface" else None}
-            deps = [("variable", vars_in(r.get("ip"), r.get("name")))]
+            deps = [("variable", vars_in(r.get("ip"), r.get("name"))),
+                    ("mgmt_profile", [r.get("interface_management_profile")])]
             t = r["interface_type"]
             if t == "ethernet":
                 body |= {"link_speed": r.get("link_speed"), "link_duplex": r.get("link_duplex"), "link_state": r.get("link_state")}
@@ -359,8 +375,8 @@ def main() -> int:
         print("\nWorkbook has errors - no Terraform files were written.")
         return 1
     sheets = {n: read_sheet(path, n) for n in (
-        "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Addresses", "Address Groups",
-        "Services", "Service Groups", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
+        "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Device Settings", "Addresses",
+        "Address Groups", "Services", "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
         "DHCP Reservations", "Security Rules", "NAT Rules")}
     blocks = Builder(sheets).build()
 

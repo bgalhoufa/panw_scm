@@ -82,6 +82,15 @@ SHEETS = [
       ("description", O, "Free text.", None)],
      ["$EXAMPLE_wan_ip", "ip-netmask", "203.0.113.10/30", "", "", "EXAMPLE-0123456789", "WAN IP of FW-BRANCH-01"]),
 
+    ("Device Settings", "scm_service_setting",
+     "Firewall DNS and NTP servers. One row per folder (or snippet); folders below inherit it.",
+     [CONTAINER_F, CONTAINER_S,
+      ("dns_primary", O, "Primary DNS server the firewall itself uses.", None),
+      ("dns_secondary", O, "Secondary DNS server.", None),
+      ("ntp_primary", O, "Primary NTP server (IP or FQDN, e.g. time.google.com).", None),
+      ("ntp_secondary", O, "Secondary NTP server (IP or FQDN).", None)],
+     ["EXAMPLE-SITES", "", "172.29.20.141", "172.22.20.141", "time.google.com", "time.cloudflare.com"]),
+
     ("Addresses", "scm_address", "Address objects.",
      [("name", R, "Object name (max 63).", None),
       CONTAINER_F, CONTAINER_S,
@@ -121,6 +130,19 @@ SHEETS = [
       TAG],
      ["EXAMPLE-svc-web", "PANW", "", "service-http;service-https;EXAMPLE-tcp-8443", ""]),
 
+    ("Mgmt Profiles", "scm_interface_management_profile",
+     "Interface management profiles (which services answer on a data-plane interface, e.g. ping). "
+     "Reference them in the Interfaces sheet column interface_management_profile.",
+     [("name", R, "Profile name, e.g. MP-PING.", None),
+      CONTAINER_F, CONTAINER_S,
+      ("ping", O, "Answer ping.", YN),
+      ("https", O, "Allow HTTPS management.", YN),
+      ("ssh", O, "Allow SSH management.", YN),
+      ("response_pages", O, "Serve response pages.", YN),
+      ("userid_service", O, "User-ID service.", YN),
+      ("permitted_ip", O, f"Only these sources may use the services. {SEP} Empty = any.", None)],
+     ["EXAMPLE-MP-PING", "PANW", "", "yes", "no", "no", "no", "no", ""]),
+
     ("Interfaces", "scm_ethernet_interface · scm_layer3_subinterface · scm_loopback_interface · scm_tunnel_interface",
      "Interfaces. Assign them to zones in the Zones sheet and to routers in Logical Routers. In a folder or snippet "
      "SCM only accepts interface variables: names start with $ and default_value holds the physical port.",
@@ -137,7 +159,7 @@ SHEETS = [
       ("ip", C, f"Layer 3 IPs with mask, e.g. 10.1.1.1/24 or $variable. {SEP} Leave empty if dhcp_client = yes.", None),
       ("dhcp_client", O, "ethernet layer3 / subinterface: get the IP by DHCP.", YN),
       ("dhcp_create_default_route", O, "With DHCP: install the default route from the server.", YN),
-      ("interface_management_profile", O, "Existing interface management profile (ping, SSH, ...).", None),
+      ("interface_management_profile", O, "Profile from the Mgmt Profiles sheet (or existing in SCM), e.g. MP-PING.", None),
       ("mtu", O, "MTU (576-9216). Empty = default 1500.", None),
       ("link_speed", O, "ethernet only.", ["auto", "10", "100", "1000", "10000", "40000", "100000"]),
       ("link_duplex", O, "ethernet only.", ["auto", "half", "full"]),
@@ -306,7 +328,7 @@ README_ROWS = [
     ("Scope rule", "SCM only resolves a reference inside the same snippet, or in the same folder and the folders above it. Keep shared interfaces, zones and objects in a folder above the sites; a snippet must be self-contained. The checker reports any reference SCM would reject."),
     ("Firewalls", "The firewall must already be registered to this SCM tenant (it appears in the device list), e.g. through the Customer Support Portal or by connecting it with its device certificate. The SCM API cannot register a new serial number; it can only place an existing firewall in a folder and set its name, labels and snippets. Unknown serial numbers are reported and skipped."),
     ("", None),
-    ("Deployment order", "Labels → Folders → Snippets → Folder Snippets → Tags → Variables → Addresses → Address Groups → Services → Service Groups → Interfaces → Zones → Logical Routers → Routes → DHCP Servers → DHCP Reservations → Security Rules → NAT Rules → Firewalls. Sheets are in that order; references only need to point to objects on an earlier sheet or already in SCM. Firewalls are moved last, once their folder and its configuration exist."),
+    ("Deployment order", "Labels → Folders → Snippets → Folder Snippets → Tags → Variables → Device Settings → Addresses → Address Groups → Services → Service Groups → Mgmt Profiles → Interfaces → Zones → Logical Routers → Routes → DHCP Servers → DHCP Reservations → Security Rules → NAT Rules → Firewalls. Sheets are in that order; references only need to point to objects on an earlier sheet or already in SCM. Firewalls are moved last, once their folder and its configuration exist."),
     ("After the plan", "Applying writes to the SCM candidate config only. Pushing it to the firewalls is done manually in SCM by the repo owner."),
     ("", None),
     ("Sheet → how it is deployed", None),

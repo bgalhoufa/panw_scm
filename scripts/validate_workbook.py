@@ -52,8 +52,8 @@ def main(argv: list[str] | None = None) -> int:
     path = Path((argv if argv is not None else sys.argv[1:])[0])
     rep = Report()
     s = {name: read_sheet(path, name) for name in (
-        "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Addresses", "Address Groups",
-        "Services", "Service Groups", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
+        "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Device Settings", "Addresses",
+        "Address Groups", "Services", "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
         "DHCP Reservations", "Security Rules", "NAT Rules", "Firewalls")}
     at = lambda sheet, r: f"{sheet} row {r['_row']}"  # noqa: E731
 
@@ -111,14 +111,15 @@ def main(argv: list[str] | None = None) -> int:
             rep.err(at(sheet, r), f"device '{name}' is not a serial number in the Firewalls sheet")
         return f"{kind}:{name}"
 
-    CONTAINER_SHEETS = ("Tags", "Variables", "Addresses", "Address Groups", "Services", "Service Groups",
-                        "Interfaces", "Zones", "Logical Routers", "DHCP Servers", "DHCP Reservations",
+    CONTAINER_SHEETS = ("Tags", "Variables", "Device Settings", "Addresses", "Address Groups", "Services",
+                        "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "DHCP Servers", "DHCP Reservations",
                         "Security Rules", "NAT Rules")
     seen = defaultdict(set)
     for sheet in CONTAINER_SHEETS:
         for r in s[sheet]:
             c = container(sheet, r)
-            key = r.get("name") or (r.get("interface") if sheet == "DHCP Servers" else None)
+            key = r.get("name") or (r.get("interface") if sheet == "DHCP Servers" else
+                                    "device settings" if sheet == "Device Settings" else None)
             if c and key and key in seen[(sheet, c)]:
                 rep.err(at(sheet, r), f"duplicate '{key}' in {c}")
             seen[(sheet, c)].add(key)
@@ -352,7 +353,8 @@ def main(argv: list[str] | None = None) -> int:
     # folders above it (a firewall sees its folder chain). Anything else fails at apply time.
     defined = defaultdict(list)          # (kind, name) -> containers that define it
     kinds = {"Interfaces": "interface", "Zones": "zone", "Addresses": "address", "Address Groups": "address",
-             "Services": "service", "Service Groups": "service", "Tags": "tag", "Variables": "variable"}
+             "Services": "service", "Service Groups": "service", "Tags": "tag", "Variables": "variable",
+             "Mgmt Profiles": "mgmt_profile"}
     for sheet, kind in kinds.items():
         for r in s[sheet]:
             if r.get("_container") and not (sheet == "Variables" and r.get("device")):
@@ -383,8 +385,13 @@ def main(argv: list[str] | None = None) -> int:
                                       "cannot see - SCM only resolves references in the same snippet or up the folder chain")
 
     vrs = lambda *vals: [v for val in vals for v in split_list(val) if v.startswith("$")]  # noqa: E731
+    profiles = {r["name"] for r in s["Mgmt Profiles"]}
     for r in s["Interfaces"]:
         check_scope("Interfaces", r, "interface", [r.get("parent_interface")])
+        check_scope("Interfaces", r, "mgmt_profile", [r.get("interface_management_profile")])
+        mp = r.get("interface_management_profile")
+        if mp and mp not in profiles:
+            rep.warn(at("Interfaces", r), f"management profile '{mp}' is not in the Mgmt Profiles sheet - it must already exist")
         check_scope("Interfaces", r, "variable", vrs(r.get("ip")))
     for r in s["Zones"]:
         check_scope("Zones", r, "interface", split_list(r.get("interfaces")))
