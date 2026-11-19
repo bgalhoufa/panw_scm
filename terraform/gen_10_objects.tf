@@ -354,7 +354,7 @@ resource "scm_variable" "site004_vlan188_ip" {
 }
 
 resource "scm_service_setting" "sites_1xx_services" {
-  folder   = scm_folder.sites_1xx.name
+  folder = scm_folder.sites_1xx.name
   services = {
     dns_setting = {
       servers = {
@@ -363,7 +363,7 @@ resource "scm_service_setting" "sites_1xx_services" {
       }
     }
     ntp_servers = {
-      primary_ntp_server   = {
+      primary_ntp_server = {
         ntp_server_address = "time.google.com"
       }
       secondary_ntp_server = {
