@@ -48,7 +48,7 @@ class Expected:
     """Everything the workbook says this firewall should have."""
 
     def __init__(self, workbook: Path, serial: str):
-        S = {n: read_sheet(workbook, n) for n in ("Folders", "Variables", "Interfaces", "Logical Routers", "Routes",
+        S = {n: read_sheet(workbook, n) for n in ("Folders", "Variables", "Interfaces", "Logical Routers", "Virtual Routers", "Routes",
                                                     "DHCP Servers", "DHCP Reservations", "Security Rules",
                                                     "NAT Rules", "Firewalls")}
         fw = next((r for r in S["Firewalls"] if r["serial_number"] == serial), None)
@@ -80,7 +80,8 @@ class Expected:
         self.physical = physical
         self.interfaces = {physical(n): [var(ip) for ip in split_list(r.get("ip"))] for n, r in ifaces.items()}
         self.routes = [(rt["destination"], var(rt.get("nexthop", ""))) for rt in S["Routes"]
-                       if any(lr["name"] == rt["logical_router"] and visible(lr) for lr in S["Logical Routers"])]
+                       if any(lr["name"] == rt["router"] and visible(lr)
+                              for lr in S["Logical Routers"] + S["Virtual Routers"])]
         self.security = [r["name"] for r in S["Security Rules"] if visible(r)]
         self.nat = [r["name"] for r in S["NAT Rules"] if visible(r)]
         self.dhcp = [(physical(r["interface"]), [var(r.get("dns_primary", "")), var(r.get("dns_secondary", "")),
@@ -132,9 +133,14 @@ def main() -> int:
             check(f"interface {name} = {ip}", ip in actual.get(name, set()),
                   f"firewall has {sorted(actual.get(name, {'(missing)'}))}")
 
-    rt = op(host, key, "<show><advanced-routing><route></route></advanced-routing></show>")
+    try:  # advanced routing (logical routers); legacy routing (virtual routers) refuses this command
+        rt = op(host, key, "<show><advanced-routing><route></route></advanced-routing></show>")
+    except Exception:  # noqa: BLE001
+        rt = ""
+    if "<entry>" not in rt:
+        rt = op(host, key, "<show><routing><route></route></routing></show>")
     for dest, nh in exp.routes:
-        check(f"route {dest} via {nh}", dest in rt and nh in rt, "not in show advanced-routing route")
+        check(f"route {dest} via {nh}", dest in rt and nh in rt, "not in the firewall's routing table")
 
     sec = op(host, key, "<show><running><security-policy></security-policy></running></show>")
     ok, missing = in_order(sec, exp.security)

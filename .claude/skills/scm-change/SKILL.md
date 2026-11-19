@@ -23,8 +23,11 @@ description: Safe workflow for any Terraform change that will create, modify or 
 8. **Verify** - re-run `plan` and confirm "No changes".
 9. **Record** - `.venv\Scripts\python scripts\deployments.py record <short-name>`: commits the generated
    code and tags it `deploy/<timestamp>-<name>` (this is the undo point).
-10. **Firewalls** - `scripts\scm_devices.py <file>` dry run; `--apply` only after approval.
-11. **Remind the user** the change is in the SCM candidate config and must be pushed from SCM.
+10. **Virtual routers** - if the workbook has Virtual Routers rows: `scripts\scm_virtual_routers.py <file>` dry run,
+    `--apply` only after approval (they reference interfaces, so always after the Terraform apply).
+    Removing a virtual router is not automated: ask the owner.
+11. **Firewalls** - `scripts\scm_devices.py <file>` dry run; `--apply` only after approval.
+12. **Remind the user** the change is in the SCM candidate config and must be pushed from SCM.
     Never push it yourself.
 
 ## Renaming an object that others reference

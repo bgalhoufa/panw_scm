@@ -7,7 +7,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 ## Claude CAN (without asking)
 - Read, write and refactor Terraform, Python scripts and docs in this repo.
 - Run read-only commands: `terraform fmt`, `init`, `validate`, `plan`, `show`, `output`,
-  `providers`, `python scripts/scm_auth_check.py`, and `scripts/scm_devices.py` and `scripts/scm_onboarding_rules.py` without `--apply`.
+  `providers`, `python scripts/scm_auth_check.py`, and `scripts/scm_devices.py`, `scripts/scm_onboarding_rules.py` and `scripts/scm_virtual_routers.py` without `--apply`.
 - Install the Python packages listed in `requirements.txt` into `.venv` (add new ones there).
 - Make read-only (GET) calls to the SCM API.
 - Commit to git and push to `origin` (github.com/bgalhoufa/panw_scm).
@@ -19,6 +19,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 - Adding new Terraform providers or modules from the registry.
 - `scripts/scm_devices.py --apply` (moves firewalls between folders); show the dry-run output first.
 - `scripts/scm_onboarding_rules.py --apply` (creates/updates onboarding rules); show the dry run first.
+- `scripts/scm_virtual_routers.py --apply` (creates/updates virtual routers); show the dry run first.
 - `scripts/fw_ssh_baseline.py --apply` (SSH to firewalls: hostname, SNMPv3, local superadmins, commit); show the dry run first.
 - Creating GitHub Actions workflows or anything that runs automatically.
 
@@ -76,6 +77,11 @@ Hard limits are also enforced in `.claude/settings.json`.
 - SCM scope rule: a reference resolves only inside the same snippet, or in the same folder and the
   folders above it. Snippets must be self-contained. In folders/snippets interfaces must be interface
   variables (`$name` + `default_value` = physical port). `validate_workbook.py` enforces both.
+- Routing (owner's decision, 2026-11-19): PA-410 allows only one logical router, so sites use legacy virtual routers
+  (VR-RAGRA, VR-IoT) and the firewall runs in legacy routing mode (advanced routing off). Terraform has no virtual
+  router resource: the Virtual Routers sheet + their Routes are applied by `scripts/scm_virtual_routers.py` after
+  `terraform apply` (it never deletes a router). Logical Routers stay supported for other models.
+- When the template gains sheets / columns, move filled workbooks over with `scripts/upgrade_workbook.py <file>`.
 - The cumulative workbook per tenant: `inputs/rollout.xlsx` (lab), `inputs/rollout-customer.xlsx` (customer).
 - Before automating anything, check `docs/api/SCM_API_ENDPOINTS.md`: prefer Terraform when the
   endpoint has a `scm_*` resource; if it is API-only, propose a script and ask first; if it is not

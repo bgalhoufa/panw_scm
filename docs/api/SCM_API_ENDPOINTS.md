@@ -436,7 +436,7 @@ Host: `api.strata.paloaltonetworks.com` · Products: NGFW, PA
 
 | Endpoint | Operations | Terraform |
 |---|---|---|
-| `/config/network/v1/virtual-routers` | list, create, get by id, update, delete | — |
+| `/config/network/v1/virtual-routers` | list, create, get by id, update, delete | — (`scripts/scm_virtual_routers.py`) |
 
 ### Access Policies
 

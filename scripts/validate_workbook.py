@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     rep = Report()
     s = {name: read_sheet(path, name) for name in (
         "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Device Settings", "Addresses",
-        "Address Groups", "Services", "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
+        "Address Groups", "Services", "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Virtual Routers", "Routes", "DHCP Servers",
         "DHCP Reservations", "Security Rules", "NAT Rules", "Firewalls")}
     at = lambda sheet, r: f"{sheet} row {r['_row']}"  # noqa: E731
 
@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         return f"{kind}:{name}"
 
     CONTAINER_SHEETS = ("Tags", "Variables", "Device Settings", "Addresses", "Address Groups", "Services",
-                        "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "DHCP Servers", "DHCP Reservations",
+                        "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Virtual Routers", "DHCP Servers", "DHCP Reservations",
                         "Security Rules", "NAT Rules")
     seen = defaultdict(set)
     for sheet in CONTAINER_SHEETS:
@@ -182,18 +182,35 @@ def main(argv: list[str] | None = None) -> int:
             if i in zone_of:
                 rep.err(at("Zones", r), f"interface '{i}' is already in zone '{zone_of[i]}'")
             zone_of[i] = r["name"]
-    routers = {}
-    for r in s["Logical Routers"]:
-        routers[(r["name"], r["vrf_name"])] = r
-        for i in split_list(r.get("interfaces")):
-            if i not in interfaces:
-                rep.err(at("Logical Routers", r), f"interface '{i}' is not in the Interfaces sheet")
+    # Logical routers are keyed (name, vrf), virtual routers (name, None); a name is one or the other
+    routers, router_of = {}, {}
+    for sheet in ("Logical Routers", "Virtual Routers"):
+        for r in s[sheet]:
+            routers[(r["name"], r.get("vrf_name") if sheet == "Logical Routers" else None)] = r
+            for i in split_list(r.get("interfaces")):
+                if i not in interfaces:
+                    rep.err(at(sheet, r), f"interface '{i}' is not in the Interfaces sheet")
+                if router_of.get(i, r["name"]) != r["name"]:
+                    rep.err(at(sheet, r), f"interface '{i}' is already in router '{router_of[i]}'")
+                router_of[i] = r["name"]
+    lr_names = {r["name"] for r in s["Logical Routers"]}
+    vr_names = {r["name"] for r in s["Virtual Routers"]}
+    for name in lr_names & vr_names:
+        rep.err("Virtual Routers", f"'{name}' is both a logical and a virtual router")
     for r in s["Routes"]:
-        if (r["logical_router"], r["vrf_name"]) not in routers:
-            rep.err(at("Routes", r), f"router '{r['logical_router']}' / VRF '{r['vrf_name']}' is not in Logical Routers")
-        elif r.get("interface") and r["interface"] not in split_list(routers[(r["logical_router"], r["vrf_name"])].get("interfaces")):
+        vr = r["router"] in vr_names
+        key = (r["router"], None if vr else r.get("vrf_name"))
+        if vr and r.get("vrf_name"):
+            rep.err(at("Routes", r), f"'{r['router']}' is a virtual router: leave vrf_name empty")
+        elif not vr and not r.get("vrf_name"):
+            rep.err(at("Routes", r), "vrf_name is required for a logical router")
+        elif key not in routers:
+            rep.err(at("Routes", r), f"router '{r['router']}' / VRF '{r.get('vrf_name')}' is not in Logical Routers or Virtual Routers")
+        elif r.get("interface") and r["interface"] not in split_list(routers[key].get("interfaces")):
             rep.err(at("Routes", r), f"interface '{r['interface']}' is not part of that router / VRF")
-        if r["nexthop_type"] in ("ip_address", "next_lr", "fqdn") and not r.get("nexthop"):
+        if r["nexthop_type"] == ("next_lr" if vr else "next_vr"):
+            rep.err(at("Routes", r), f"nexthop_type {r['nexthop_type']} does not fit a {'virtual' if vr else 'logical'} router")
+        if r["nexthop_type"] in ("ip_address", "next_lr", "next_vr", "fqdn") and not r.get("nexthop"):
             rep.err(at("Routes", r), f"nexthop is required for {r['nexthop_type']}")
         check_var("Routes", r, "nexthop")
 
@@ -395,12 +412,13 @@ def main(argv: list[str] | None = None) -> int:
         check_scope("Zones", r, "interface", split_list(r.get("interfaces")))
     routes_of = defaultdict(list)
     for rt in s["Routes"]:
-        routes_of[(rt["logical_router"], rt["vrf_name"])].append(rt)
-    for r in s["Logical Routers"]:
-        check_scope("Logical Routers", r, "interface", split_list(r.get("interfaces")))
-        for rt in routes_of[(r["name"], r["vrf_name"])]:
-            check_scope("Logical Routers", r, "interface", [rt.get("interface")])
-            check_scope("Logical Routers", r, "variable", vrs(rt.get("nexthop")))
+        routes_of[(rt["router"], rt.get("vrf_name") or None)].append(rt)
+    for sheet in ("Logical Routers", "Virtual Routers"):
+        for r in s[sheet]:
+            check_scope(sheet, r, "interface", split_list(r.get("interfaces")))
+            for rt in routes_of[(r["name"], r.get("vrf_name") if sheet == "Logical Routers" else None)]:
+                check_scope(sheet, r, "interface", [rt.get("interface")])
+                check_scope(sheet, r, "variable", vrs(rt.get("nexthop")))
     for r in s["DHCP Servers"]:
         check_scope("DHCP Servers", r, "interface", [r["interface"]])
         check_scope("DHCP Servers", r, "variable", vrs(r.get("gateway"), r.get("dns_primary"), r.get("dns_secondary"),

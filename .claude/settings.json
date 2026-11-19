@@ -39,6 +39,8 @@
       "PowerShell(*scm_devices.py*--apply*)",
       "Bash(*scm_onboarding_rules.py*--apply*)",
       "PowerShell(*scm_onboarding_rules.py*--apply*)",
+      "Bash(*scm_virtual_routers.py*--apply*)",
+      "PowerShell(*scm_virtual_routers.py*--apply*)",
       "Bash(*fw_ssh_baseline.py*--apply*)",
       "PowerShell(*fw_ssh_baseline.py*--apply*)"
     ]

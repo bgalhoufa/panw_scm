@@ -267,9 +267,10 @@ class Builder:
                               "enable_user_identification": yn(r.get("enable_user_identification")),
                               "enable_device_identification": yn(r.get("enable_device_identification"))},
                       self.deps(("interface", ifaces)))
+        # Virtual routers (and their routes) have no Terraform resource: scm_virtual_routers.py handles them
         routes = defaultdict(list)
         for r in S["Routes"]:
-            routes[(r["logical_router"], r["vrf_name"])].append(r)
+            routes[(r["router"], r.get("vrf_name"))].append(r)
         routers = defaultdict(list)
         for r in S["Logical Routers"]:
             routers[(r.get("folder") or r.get("snippet"), r["name"])].append(r)
@@ -380,7 +381,7 @@ def main() -> int:
         return 1
     sheets = {n: read_sheet(path, n) for n in (
         "Labels", "Folders", "Snippets", "Folder Snippets", "Tags", "Variables", "Device Settings", "Addresses",
-        "Address Groups", "Services", "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Routes", "DHCP Servers",
+        "Address Groups", "Services", "Service Groups", "Mgmt Profiles", "Interfaces", "Zones", "Logical Routers", "Virtual Routers", "Routes", "DHCP Servers",
         "DHCP Reservations", "Security Rules", "NAT Rules")}
     blocks = Builder(sheets).build()
     tenant = os.environ.get("SCM_TENANT", "").strip() or "default"
