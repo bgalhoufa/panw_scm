@@ -19,6 +19,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 - Adding new Terraform providers or modules from the registry.
 - `scripts/scm_devices.py --apply` (moves firewalls between folders); show the dry-run output first.
 - `scripts/scm_onboarding_rules.py --apply` (creates/updates onboarding rules); show the dry run first.
+- `scripts/fw_ssh_baseline.py --apply` (SSH to firewalls: hostname, SNMPv3, local superadmins, commit); show the dry run first.
 - Creating GitHub Actions workflows or anything that runs automatically.
 
 ## Claude must NEVER
