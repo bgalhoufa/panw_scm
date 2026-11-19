@@ -39,10 +39,19 @@ Hard limits are also enforced in `.claude/settings.json`.
   the lab firewalls move out). New roots (e.g. mixed `SITES-1XX-3XX`) only on the owner's request.
 - All Firewalls (`ngfw-shared`) itself and every other folder (HOME-LAB, BALCOES, DATACENTERS,
   FLIGHT, Prisma Access, ...) are read-only for Claude.
+- Tenants: `default` = lab tenant (`.env`); `customer` = the customer's tenant (`.env.customer`). PANW exists only in
+  the lab tenant. In the customer tenant its existing folders (RAGRA, "RAGRA e RAAI", ...), snippets ("GRA - RAAI",
+  "GRA - RAGRA", "GRA_device_config", ...) and firewalls outside SITES-* are read-only; moving a firewall out of
+  them needs the owner's explicit approval (`--allow-out-of-scope-source`).
 
 ## Conventions
-- Credentials come only from environment variables / `.env` (see `.env.example`).
-  Load them in PowerShell with `. .\scripts\load-env.ps1`.
+- Credentials come only from environment variables / `.env` (see `.env.example`); a second tenant's SCM_*
+  credentials live in `.env.<tenant>` (git-ignored). Load them in PowerShell with `. .\scripts\load-env.ps1`
+  (lab) or `. .\scripts\load-env.ps1 -Tenant customer`; Python scripts pick the tenant from `SCM_TENANT`.
+- One Terraform workspace (local state) per tenant, selected by `TF_WORKSPACE` from load-env.ps1. Generated code
+  is stamped with its tenant (`SCM_TENANT` when running `workbook_to_tf.py`); `terraform/tenant.tf` stops the plan
+  if credentials, workspace and generated code disagree. Before planning a tenant, regenerate `gen_*.tf` from
+  that tenant's workbook. Deployment tags: `deploy/<ts>-<name>` (lab), `deploy/<tenant>/<ts>-<name>` (others).
 - Invoke Terraform as `terraform ...` from the `terraform/` directory (not via a full
   path) so the permission rules in `.claude/settings.json` match.
 - Follow the `scm-change` skill for any change that will reach SCM.
@@ -67,7 +76,7 @@ Hard limits are also enforced in `.claude/settings.json`.
 - SCM scope rule: a reference resolves only inside the same snippet, or in the same folder and the
   folders above it. Snippets must be self-contained. In folders/snippets interfaces must be interface
   variables (`$name` + `default_value` = physical port). `validate_workbook.py` enforces both.
-- The cumulative workbook is `inputs/rollout.xlsx`.
+- The cumulative workbook per tenant: `inputs/rollout.xlsx` (lab), `inputs/rollout-customer.xlsx` (customer).
 - Before automating anything, check `docs/api/SCM_API_ENDPOINTS.md`: prefer Terraform when the
   endpoint has a `scm_*` resource; if it is API-only, propose a script and ask first; if it is not
   listed, the API cannot do it.

@@ -2,6 +2,7 @@
   "permissions": {
     "deny": [
       "Read(./.env)",
+      "Read(./.env.*)",
       "Read(./**/*.tfstate)",
       "Read(./**/*.tfstate.*)",
       "Bash(terraform destroy*)",

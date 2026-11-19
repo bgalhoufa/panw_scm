@@ -2,15 +2,16 @@
 #
 # Everything below PANW comes from the workbook and lives in gen_*.tf
 # (scripts/workbook_to_tf.py). PANW itself stays here so undoing a deployment
-# never removes it.
+# never removes it. PANW holds the lab pilot only, so it exists only in the lab tenant
+# (workspace "default"); other tenants start directly with the workbook's folders.
 
 locals {
-  folders_level1 = {
+  folders_level1 = terraform.workspace == "default" ? {
     PANW = {
       parent      = "ngfw-shared" # "All Firewalls"
       description = "Managed by Terraform"
     }
-  }
+  } : {}
 }
 
 resource "scm_folder" "level1" {

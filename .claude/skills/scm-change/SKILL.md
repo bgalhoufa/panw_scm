@@ -7,13 +7,15 @@ description: Safe workflow for any Terraform change that will create, modify or 
 
 ## Deploy a workbook
 
-1. **Scope check** - every folder must be PANW or below it (see `CLAUDE.md`).
+0. **Tenant** - pick the tenant first: `. .\scripts\load-env.ps1 [-Tenant <name>]` (sets credentials +
+   Terraform workspace); for the Python steps set `SCM_TENANT` the same way. Use that tenant's workbook.
+1. **Scope check** - every folder must be a managed root (`scripts/scope.py`) or below one (see `CLAUDE.md`).
 2. **Validate** - `.venv\Scripts\python scripts\validate_workbook.py <file>`. Fix errors; read the warnings.
 3. **Generate** - `.venv\Scripts\python scripts\workbook_to_tf.py <file>` (replaces `terraform/gen_*.tf`),
    then `terraform -chdir=terraform fmt` and `terraform -chdir=terraform validate`.
    Never edit `gen_*.tf` by hand.
 4. **Plan** - load credentials (`. .\scripts\load-env.ps1`), then
-   `terraform -chdir=terraform plan -out=tfplan`. Summarise for the user: adds / changes / destroys,
+   `terraform -chdir=terraform plan -out=tfplan`. The `tenant` output's preconditions must pass. Summarise for the user: adds / changes / destroys,
    and list every resource being changed or destroyed by name.
 5. **Stop if anything is destroyed or replaced** that the user did not explicitly ask for.
 6. **Ask for approval** - wait for an explicit "yes".
