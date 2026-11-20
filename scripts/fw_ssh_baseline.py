@@ -1,10 +1,15 @@
 """Configure what SCM's API cannot, directly on each firewall over SSH, then commit.
 
 Per firewall (matched to its Firewalls row by serial number):
-  - factory cleanup removes the factory-default virtual wire (ethernet1/1 + 1/2, zones trust / untrust,
-                    rule1): its local definitions override SCM's layer 3 interfaces and the push fails
-                    ("zone ... type and interface ethernet1/1 type mismatch"). Each object is deleted
-                    only if it still looks like the factory default. Run the baseline before the first push.
+  - local cleanup   SCM merges its config with the firewall's local config and the local one wins, so
+                    local leftovers break the push. Removed, each only if present:
+                    * the factory-default virtual wire (rule1, zones trust / untrust, default-vwire)
+                      -> "zone ... type and interface ethernet1/1 type mismatch"
+                    * the local vsys1 interface import list: it replaces SCM's list, so SCM's
+                      subinterfaces are in no vsys -> "interface 'ethernet1/3.100' is not a valid reference"
+                    * local definitions of the ports SCM manages for this firewall (Interfaces sheet
+                      default_value in its folder chain), e.g. ethernet1/1-1/3
+                    Run the baseline before the first push.
   - hostname        SITE<site_id>, e.g. SITE003
   - SNMPv3          read-only view + user (auth SHA, priv AES), SNMP allowed on the management port
   - superadmins     local administrators nso and drctd (role-based superuser)
@@ -44,10 +49,29 @@ FACTORY_DEFAULTS = [
     ("show zone trust", "virtual-wire", "delete zone trust"),
     ("show zone untrust", "virtual-wire", "delete zone untrust"),
     ("show network virtual-wire default-vwire", "ethernet1/", "delete network virtual-wire default-vwire"),
-    ("show network interface ethernet ethernet1/1", "virtual-wire", "delete network interface ethernet ethernet1/1"),
-    ("show network interface ethernet ethernet1/2", "virtual-wire", "delete network interface ethernet ethernet1/2"),
 ]
+# Single-vsys syntax: configure mode has no "vsys vsys1" level ("delete vsys vsys1 import ..." is invalid),
+# and "show" only works on a container ("show import network interface" is invalid).
+LOCAL_IMPORT = ("show import network", "ethernet", "delete import network interface")
 REFUSED = re.compile(r"(?i)invalid syntax|unknown command|server error|error:")
+
+
+def managed_ports(workbook: Path, row: dict) -> list[str]:
+    """Physical ports SCM configures on this firewall: Interfaces default_value in its folder chain."""
+    parents = {r["name"]: r["parent"] for r in read_sheet(workbook, "Folders")}
+    chain, f = set(), row["folder"]
+    while f and f not in chain:
+        chain.add(f)
+        f = parents.get(f, "")
+    return sorted({r["default_value"] for r in read_sheet(workbook, "Interfaces")
+                   if r["interface_type"] == "ethernet" and r.get("default_value")
+                   and (r.get("folder") in chain or r.get("device") == row["serial_number"])})
+
+
+def cleanup_steps(ports: list[str]) -> list[tuple[str, str, str]]:
+    """(check, marker, delete) in reference order: rules / zones / vwire, import list, then the ports."""
+    return FACTORY_DEFAULTS + [LOCAL_IMPORT] + [
+        (f"show network interface ethernet {p}", "{", f"delete network interface ethernet {p}") for p in ports]
 
 
 def hostname_for(row: dict) -> str:
@@ -131,8 +155,8 @@ def main() -> int:
         for r in rows.values():
             if args.wave is None or r.get("wave") == args.wave:
                 print(f"== {r['serial_number']} ({r.get('display_name')}, {r['folder']}):")
-                for check, marker, delete in FACTORY_DEFAULTS:
-                    print(f"    {delete:48} # only if '{check}' still shows {marker}")
+                for check, marker, delete in cleanup_steps(managed_ports(args.workbook, r)):
+                    print(f"    {delete:48} # only if '{check}' shows {marker}")
                 for c in config_commands(r, {}):
                     print("   ", mask(c))
                 print("    commit")
@@ -169,7 +193,7 @@ def main() -> int:
                     raise RuntimeError(f"could not compute the password hash for {admin}")
                 phash[admin] = found.group(0)
             sh.run("configure")
-            for check, marker, delete in FACTORY_DEFAULTS:
+            for check, marker, delete in cleanup_steps(managed_ports(args.workbook, row)):
                 shown = sh.run(check).split("\n", 1)[-1]  # drop the echoed command
                 if marker in shown:
                     out = sh.run(delete)

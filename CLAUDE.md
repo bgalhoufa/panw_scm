@@ -73,9 +73,18 @@ Hard limits are also enforced in `.claude/settings.json`.
   logical routers, DHCP relays, device settings, variables with placeholders); one folder per site below it
   (`SITE003`, ...) holding only its variable values and local DHCP. Each firewall is placed in its site
   folder; one firewall per site. Branch types / entities are labels, not folders. Hostname, SNMPv3 and
-  local superadmins are set over SSH by `scripts/fw_ssh_baseline.py` (no SCM API for them). Run it before the
-  first SCM push: it also removes the factory-default virtual wire (ethernet1/1 + 1/2), whose local definitions
-  override SCM's layer 3 interfaces and make the push fail.
+  local superadmins are set over SSH by `scripts/fw_ssh_baseline.py` (no SCM API for them).
+- Firewall onboarding order (learned on the first PA-410, 2026-11-20): routing mode set locally (legacy for
+  virtual routers) + reboot -> connected to SCM -> placed in its site folder (`scm_devices.py`) ->
+  `fw_ssh_baseline.py --apply` -> push. SCM merges its config with the firewall's local config and the local one
+  wins, so before the first push the firewall must hold no local network config: the baseline removes the
+  factory virtual wire, the local vsys1 interface import list (it replaces SCM's list, leaving every SCM
+  subinterface outside vsys1 -> "interface 'ethernet1/3.100' is not a valid reference") and local definitions
+  of the ports SCM manages.
+- Reading push failures: PAN-OS reports only the first bad reference of a list; read the firewall's job
+  (`show jobs id N`) and, if needed, compare `show config pushed-template` with the local config. A push only
+  carries changes made with the service account if it includes all admins: the config version must count them
+  (created / updated / deleted, edited_by). DHCP server / relay needs its interface in a virtual router.
 - SCM scope rule: a reference resolves only inside the same snippet, or in the same folder and the
   folders above it. Snippets must be self-contained. In folders/snippets interfaces must be interface
   variables (`$name` + `default_value` = physical port). `validate_workbook.py` enforces both.
